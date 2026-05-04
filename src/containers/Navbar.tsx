@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import {
   AppBar,
@@ -17,19 +18,23 @@ import {
   Typography,
 } from '@mui/material';
 import { useColorScheme } from '@mui/material/styles';
+import { PreferencesDialog } from '~/containers/PreferencesDialog';
+import { usePreferences } from '~/hooks/usePreferences';
 import { STORES } from '~/lib/vtex/stores';
 import type { Store, StoreId } from '~/lib/vtex/types';
 
-type Props = {
+type NavbarProps = {
   store: Store | null;
   cartCount: number;
   onOpenCart: () => void;
   onSwitchStore: (id: StoreId) => void;
 };
 
-export const Navbar = ({ store, cartCount, onOpenCart, onSwitchStore }: Props) => {
+export const Navbar = ({ store, cartCount, onOpenCart, onSwitchStore }: NavbarProps) => {
   const { mode, setMode } = useColorScheme();
+  const { prefs, setPrefs } = usePreferences();
   const [picking, setPicking] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const otherStores = Object.values(STORES).filter((s) => s.id !== store?.id);
   const toggleTheme = () => setMode(mode === 'dark' ? 'light' : 'dark');
@@ -52,6 +57,15 @@ export const Navbar = ({ store, cartCount, onOpenCart, onSwitchStore }: Props) =
               {store.name}
             </Button>
           )}
+          <IconButton
+            onClick={() => setPrefsOpen(true)}
+            data-testid='open-preferences-button'
+            aria-label='Open preferences'
+          >
+            <Badge color='primary' variant='dot' invisible={prefs.length === 0}>
+              <SettingsIcon />
+            </Badge>
+          </IconButton>
           <IconButton onClick={onOpenCart} data-testid='open-cart-button' aria-label='Open cart'>
             <Badge badgeContent={cartCount} color='primary'>
               <ShoppingCartIcon />
@@ -62,6 +76,7 @@ export const Navbar = ({ store, cartCount, onOpenCart, onSwitchStore }: Props) =
           </IconButton>
         </Toolbar>
       </AppBar>
+
       <Dialog open={picking} onClose={() => setPicking(false)}>
         <DialogTitle>Switch store?</DialogTitle>
         <DialogContent>
@@ -84,6 +99,8 @@ export const Navbar = ({ store, cartCount, onOpenCart, onSwitchStore }: Props) =
           ))}
         </DialogActions>
       </Dialog>
+
+      <PreferencesDialog open={prefsOpen} initialValue={prefs} onSave={setPrefs} onClose={() => setPrefsOpen(false)} />
     </>
   );
 };
