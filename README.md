@@ -1,141 +1,52 @@
-# Next.js Boilerplate
+# Supermarket
 
-## Features
+Recipe-to-cart helper for Argentine supermarkets. PoC stage: pick a supermarket, search its catalog, build a cart, hand off to the supermarket's checkout with all items in the user's cart.
 
-- Modern React setup with the latest tools and libraries.
-- Next.js App Router with Material UI.
-- Example unit and end-to-end tests included.
-- Code linting and formatting for clean and maintainable code.
-- GitHub workflows for continuous integration.
+Currently supports: Jumbo, Carrefour. Both run on VTEX; integration is anonymous (no API keys).
+
+## Stack
+
+Next.js 15 (App Router), React 19, MUI v6, TypeScript, Jest, Playwright, pnpm.
 
 ## Setup
 
-1. Clone this repository.
-2. Copy the `.env.example` file to `.env` and fill in any variables you need.
-3. Install the project dependencies by running:
-
-   ```bash
-   pnpm install
-   ```
-
-## Available Scripts
-
-Available scripts that can be run using `pnpm`:
-
-| Script         | Description                                                  |
-| -------------- | ------------------------------------------------------------ |
-| `dev`          | Start the development server using Next.                     |
-| `build`        | Build the project for production.                            |
-| `preview`      | Preview the production build using Next.                     |
-| `lint`         | Run ESLint on the source code to check for coding standards. |
-| `lint:fix`     | Run ESLint and automatically fix code formatting issues.     |
-| `prettier`     | Check code formatting using Prettier.                        |
-| `prettier:fix` | Format code using Prettier and automatically fix issues.     |
-| `format`       | Run Prettier and ESLint to format and fix code issues.       |
-| `format:check` | Check code formatting and linting without making changes.    |
-| `test`         | Run tests using Playwright and Jest                          |
-
-## Technologies Used
-
-This boilerplate leverages the latest technologies, including:
-
-- [Next.js](https://nextjs.org/)
-- [Material UI](https://mui.com/)
-- [Jest](https://jestjs.io/)
-- [Playwright](https://playwright.dev/)
-
-## Running Tests
-
-To run the tests for this project, you can use the following commands:
-
-- **Run all tests** (both unit and end-to-end):
-
-  ```bash
-  pnpm run test
-  ```
-
-- **Run unit tests** using Jest:
-
-  ```bash
-  pnpm run test:unit
-  ```
-
-- **Run end-to-end tests** using Playwright:
-
-  ```bash
-  pnpm run test:e2e
-  ```
-
-## Theme Customization
-
-### Modifying Default Colors
-
-To customize the default palette (error, warning, success, info), uncomment and modify the palette object in `src/config/themes/theme.ts`:
-
-```typescript
-const palette = {
-   error: {
-     main: '#BA6B5D',    // Main error color
-     light: '#ECCCC6',   // Light variant
-     dark: '#824A41',    // Dark variant
-   },
-   warning: { ... },
-   success: { ... },
-   info: { ... },
-};
+```bash
+pnpm install
 ```
 
-### Adding New Theme Variables
+No environment variables are required for the PoC. `.env.example` is empty.
 
-To extend the theme with new variables, declare them in `src/types/theme.ts` using the Material-UI module augmentation:
+## Scripts
 
-```typescript
-declare module '@mui/material/styles' {
-  interface Palette {
-    // Add new palette property
-    myNewColor: {
-      primary: string;
-    };
-  }
+| Script | What it does |
+|---|---|
+| `pnpm dev` | Start dev server on http://localhost:3000 |
+| `pnpm build` / `pnpm start` | Production build & serve |
+| `pnpm test:unit` | Jest unit tests |
+| `pnpm test:live` | Live integration tests (real network calls to Jumbo + Carrefour). Skipped from `test:unit`. |
+| `pnpm test:e2e` | Playwright E2E tests |
+| `pnpm test` | unit + e2e |
+| `pnpm format` | Prettier + ESLint fixes |
 
-  // Add new theme property
-  interface Theme {
-    myNewProperty: {
-      value: string;
-    };
-  }
-}
-```
+## How the cart hand-off works
 
-### Using Theme Attributes with Styled Components
+The backend never creates a cart on the supermarket. Instead, `/api/checkout` returns a stateless URL like `https://www.jumbo.com.ar/checkout/cart/add?sku=A&qty=1&seller=1&sku=B&qty=2&seller=1&sc=1&redirect=true`. The browser navigates there; the supermarket adds the items to *that browser's* session and redirects to its checkout page. The user logs into their existing supermarket account on the supermarket's site to pay.
 
-You can access theme properties in your styled components using the theme prop. Here are some examples:
+This avoids cross-origin cookie issues entirely.
 
-```typescript
-import { styled } from '@mui/material/styles';
+## Manual smoke checklist
 
-// Using background colors
-const StyledContainer = styled('div')(({ theme }) => ({
-  backgroundColor: theme.palette.background.default,
-  padding: '1rem',
-}));
+After any non-trivial change to the search or cart flow:
 
-// Using border radius
-const RoundedBox = styled('div')(({ theme }) => ({
-  borderRadius: theme.borderRadius.default,
-  border: theme.palette.border,
-}));
+1. `pnpm dev`, open http://localhost:3000.
+2. Pick Jumbo → search "leche" → at least one result with image and price.
+3. Add two products → cart badge shows 2 → drawer shows both with qty editor.
+4. Click "Send to Jumbo" → browser navigates to `www.jumbo.com.ar` with both items in cart.
+5. Repeat 2–4 for Carrefour after switching stores from the navbar.
+6. Switch from Carrefour back to Jumbo → confirm dialog appears → cart cleared.
 
-// Using typography
-const StyledText = styled('p')(({ theme }) => ({
-  color: theme.palette.text.primary,
-  fontFamily: theme.typography.fontFamily,
-}));
+## Spec & plan
 
-// Using custom theme properties
-const TitleText = styled('h1')(({ theme }) => ({
-  color: theme.palette.title.primary,
-}));
-```
-
-These styled components will automatically adapt to theme changes (light/dark mode).
+- Spec: `docs/superpowers/specs/2026-05-04-supermarket-poc-design.md`
+- Plan: `docs/superpowers/plans/2026-05-04-supermarket-poc.md`
+- VTEX endpoint samples: `docs/superpowers/research/2026-05-04-vtex-samples.md`
