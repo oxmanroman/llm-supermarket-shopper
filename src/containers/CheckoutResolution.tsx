@@ -1,2 +1,6 @@
 'use client';
-export const CheckoutResolution = () => null;
+type Props = { onBack: () => void };
+export const CheckoutResolution = (props: Props) => {
+  void props;
+  return null;
+};
