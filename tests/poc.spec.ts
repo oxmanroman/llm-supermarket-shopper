@@ -1,136 +1,144 @@
-import { test, expect, Route } from '@playwright/test';
+import { expect, Route, test } from '@playwright/test';
 
-const sampleProducts = [
-  {
-    skuId: '1001',
-    productId: '111',
-    name: 'La Serenísima Leche Entera 1L',
-    brand: 'La Serenísima',
-    imageUrl: 'https://example.test/img.jpg',
-    price: 850,
-    available: true,
+const sampleExtractURL = {
+  label: 'Empanadas de pollo',
+  ingredients: [
+    { name: 'pollo', qty: 200, unit: 'g' },
+    { name: 'cebolla', qty: 1, unit: null },
+  ],
+  isLoose: false,
+};
+const sampleExtractText = {
+  label: 'Tarta de espinaca',
+  ingredients: [
+    { name: 'espinaca', qty: 1, unit: 'paquete' },
+    { name: 'cebolla', qty: 1, unit: null },
+  ],
+  isLoose: false,
+};
+const sampleExtractLoose = {
+  label: 'yerba',
+  ingredients: [{ name: 'yerba', qty: null, unit: null }],
+  isLoose: true,
+};
+const sampleResolve = {
+  matched: [
+    {
+      aggregatedId: 'a-onion',
+      ingredient: {
+        id: 'a-onion',
+        name: 'cebolla',
+        qty: 2,
+        unit: null,
+        sources: [{ recipeId: 'r1', recipeLabel: 'Empanadas de pollo', originalText: '1 cebolla' }],
+      },
+      picked: { skuId: 'sku-onion', productId: 'p', name: 'Cebolla por kg', price: 1500, available: true },
+      confidence: 'high',
+    },
+  ],
+  unmatched: [
+    {
+      id: 'a-flour',
+      name: 'harina',
+      qty: 500,
+      unit: 'g',
+      sources: [{ recipeId: 'r1', recipeLabel: 'Empanadas de pollo', originalText: '500 g harina' }],
+    },
+  ],
+  skipped: [{ name: 'sal', reason: 'pantry staple' }],
+  candidates: {
+    'a-onion': [{ skuId: 'sku-onion', productId: 'p', name: 'Cebolla por kg', price: 1500, available: true }],
+    'a-flour': [],
   },
-  {
-    skuId: '1002',
-    productId: '112',
-    name: 'Sancor Leche Descremada 1L',
-    brand: 'Sancor',
-    imageUrl: 'https://example.test/img2.jpg',
-    price: 900,
-    available: true,
-  },
-];
+  redirectUrl: 'https://www.jumbo.com.ar/checkout/cart/add?sku=sku-onion&qty=2&seller=1&sc=32&redirect=true',
+};
 
 const mockApi = async (route: Route) => {
   const url = route.request().url();
-  if (url.includes('/api/search')) {
-    await route.fulfill({ status: 200, body: JSON.stringify({ products: sampleProducts }) });
-  } else if (url.includes('/api/checkout')) {
-    const body = JSON.parse(route.request().postData() ?? '{}') as {
-      store: string;
-      items: { skuId: string; qty: number }[];
-    };
-    const params = new URLSearchParams();
-    for (const i of body.items) {
-      params.append('sku', i.skuId);
-      params.append('qty', String(i.qty));
-      params.append('seller', '1');
+  if (url.includes('/api/recipe/extract')) {
+    const body = JSON.parse(route.request().postData() ?? '{}') as { url?: string; text?: string };
+    if (body.url) {
+      await route.fulfill({ status: 200, body: JSON.stringify(sampleExtractURL) });
+    } else if (body.text === 'yerba') {
+      await route.fulfill({ status: 200, body: JSON.stringify(sampleExtractLoose) });
+    } else {
+      await route.fulfill({ status: 200, body: JSON.stringify(sampleExtractText) });
     }
-    params.append('sc', '1');
-    params.append('redirect', 'true');
-    const host = body.store === 'jumbo' ? 'www.jumbo.com.ar' : 'www.carrefour.com.ar';
+  } else if (url.includes('/api/checkout/resolve')) {
+    await route.fulfill({ status: 200, body: JSON.stringify(sampleResolve) });
+  } else if (url.includes('/api/search')) {
     await route.fulfill({
       status: 200,
-      body: JSON.stringify({ redirectUrl: `https://${host}/checkout/cart/add?${params.toString()}` }),
+      body: JSON.stringify({
+        products: [{ skuId: 'sku-flour', productId: 'pf', name: 'Harina 000 1kg', price: 2200, available: true }],
+      }),
     });
   } else {
     await route.continue();
   }
 };
 
-test('happy path: select store, search, add, checkout', async ({ page, context }) => {
+test.beforeEach(async ({ context }) => {
   await context.route('**/api/**', mockApi);
+});
 
+test('paste URL → recipe card with label and ingredients', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('select-store-jumbo').click();
+  await page.getByTestId('add-input').fill('https://example.test/empanadas');
+  await page.getByTestId('add-submit').click();
+  await expect(page.getByText('Empanadas de pollo')).toBeVisible();
+  // Scope ingredient text matches to the ingredient rows so they don't
+  // collide with the recipe label "Empanadas de pollo".
+  await expect(page.getByText('pollo', { exact: true })).toBeVisible();
+  await expect(page.getByText('cebolla', { exact: true })).toBeVisible();
+});
 
-  await page.getByTestId('search-input').fill('leche');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await expect(page.getByTestId('product-1001')).toBeVisible();
+test('paste text → manual recipe card', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('add-input').fill('Tarta de espinaca\n- espinaca\n- cebolla');
+  await page.getByTestId('add-submit').click();
+  await expect(page.getByText('Tarta de espinaca')).toBeVisible();
+});
 
-  await page.getByTestId('add-1001').click();
-  await page.getByTestId('add-1002').click();
+test('single short phrase → Otros card', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('add-input').fill('yerba');
+  await page.getByTestId('add-submit').click();
+  await expect(page.getByText('Otros')).toBeVisible();
+  await expect(page.getByText('yerba')).toBeVisible();
+});
 
-  await page.getByTestId('open-cart-button').click();
-  await expect(page.getByTestId('cart-item-1001')).toBeVisible();
-  await expect(page.getByTestId('cart-item-1002')).toBeVisible();
+test('checkout → resolution screen → send opens new tab', async ({ page, context }) => {
+  await page.goto('/');
+  await page.getByTestId('add-input').fill('https://example.test/empanadas');
+  await page.getByTestId('add-submit').click();
+  await expect(page.getByText('Empanadas de pollo')).toBeVisible();
 
-  // Intercept the navigation that follows checkout — assert the URL host.
-  const navigationPromise = page.waitForRequest((req) =>
-    req.url().startsWith('https://www.jumbo.com.ar/checkout/cart/add'),
-  );
   await page.getByTestId('checkout-button').click();
-  const req = await navigationPromise;
-  const url = new URL(req.url());
-  expect(url.searchParams.getAll('sku')).toEqual(['1001', '1002']);
+  await expect(page).toHaveURL(/\/checkout$/);
+  await page.getByTestId('store-tile-jumbo').click();
+  await page.getByTestId('store-continue').click();
+
+  // Resolution screen
+  await expect(page.getByTestId('matched-a-onion')).toBeVisible();
+  await expect(page.getByTestId('unmatched-a-flour')).toBeVisible();
+
+  const popupPromise = context.waitForEvent('page');
+  await page.getByTestId('send-to-store').click();
+  const popup = await popupPromise;
+  // The popup may land on the redirect URL (/checkout/cart/add?...) and then
+  // the store redirects to its own cart page — assert that the popup landed
+  // on jumbo.com.ar at all.
+  await popup.waitForURL(/jumbo\.com\.ar/, { timeout: 10_000 });
+  expect(popup.url()).toMatch(/jumbo\.com\.ar/);
+  await popup.close();
 });
 
-test('switching store clears the cart', async ({ page, context }) => {
-  await context.route('**/api/**', mockApi);
+test('preferences dialog persists value across reopen', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('select-store-jumbo').click();
-  await page.getByTestId('search-input').fill('leche');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByTestId('add-1001').click();
-
-  await page.getByTestId('switch-store-button').click();
-  await page.getByTestId('switch-to-carrefour').click();
-
-  // Cart icon badge should now be 0; opening cart shows empty state.
-  await page.getByTestId('open-cart-button').click();
-  await expect(page.getByText('Cart is empty.')).toBeVisible();
-});
-
-test('paste recipe URL → cart populates and snackbar shows unmatched', async ({ page, context }) => {
-  await context.route('**/api/**', async (route) => {
-    const url = route.request().url();
-    if (url.includes('/api/recipe')) {
-      await route.fulfill({
-        status: 200,
-        body: JSON.stringify({
-          items: [
-            { skuId: '1001', qty: 1, name: 'Manteca 200g', price: 1500 },
-            { skuId: '1002', qty: 1, name: 'Huevos x12', price: 2200 },
-          ],
-          unmatched: ['salvia'],
-        }),
-      });
-    } else {
-      await mockApi(route);
-    }
-  });
-
-  await page.goto('/');
-  await page.getByTestId('select-store-jumbo').click();
-
-  await page.getByTestId('recipe-url-input').fill('https://example.test/recipe');
-  await page.getByTestId('recipe-submit-button').click();
-
-  await expect(page.getByTestId('cart-item-1001')).toBeVisible({ timeout: 5000 });
-  await expect(page.getByTestId('cart-item-1002')).toBeVisible();
-  await expect(page.getByTestId('recipe-snackbar')).toContainText('Added 2 items');
-  await expect(page.getByTestId('recipe-snackbar')).toContainText("Couldn't match: salvia");
-});
-
-test('preferences dialog: open, save, persists across reopen', async ({ page, context }) => {
-  await context.route('**/api/**', mockApi);
-  await page.goto('/');
-  await page.getByTestId('select-store-jumbo').click();
-
   await page.getByTestId('open-preferences-button').click();
   await page.getByTestId('preferences-input').fill('prefer lactose-free dairy');
   await page.getByTestId('preferences-save').click();
-
   await page.getByTestId('open-preferences-button').click();
   await expect(page.getByTestId('preferences-input')).toHaveValue('prefer lactose-free dairy');
 });
