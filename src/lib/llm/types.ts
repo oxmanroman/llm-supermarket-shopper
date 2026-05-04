@@ -10,6 +10,13 @@ export type Ingredient = z.infer<typeof IngredientSchema>;
 
 export const ExtractSchema = z.array(IngredientSchema);
 
+export const ExtractResultSchema = z.object({
+  label: z.string(),
+  ingredients: z.array(IngredientSchema),
+  isLoose: z.boolean(),
+});
+export type ExtractResult = z.infer<typeof ExtractResultSchema>;
+
 // NOTE: use `z.number()`, NOT `z.number().int()`/`z.int()`. Zod v4's int() emits
 // safe-integer `minimum`/`maximum` bounds in its JSON Schema, and Anthropic's
 // structured-output validator rejects min/max on `integer` types ("For 'integer'

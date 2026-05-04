@@ -1,37 +1,36 @@
 import { NextResponse } from 'next/server';
-import { runRecipePipeline } from '~/lib/recipe/pipeline';
-import { STORES, isStoreId } from '~/lib/vtex/stores';
+import { extract } from '~/lib/llm/extract';
+import { fetchAndCleanHtml } from '~/lib/recipe/fetch';
 
-type RecipeBody = {
-  url?: string;
-  store?: string;
-  preferences?: string;
-};
+type Body = { url?: string; text?: string };
 
 export async function POST(request: Request) {
-  let body: RecipeBody;
+  let body: Body;
   try {
-    body = (await request.json()) as RecipeBody;
+    body = (await request.json()) as Body;
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
   }
-  if (!isStoreId(body.store)) {
-    return NextResponse.json({ error: 'invalid store' }, { status: 400 });
+  const url = typeof body.url === 'string' ? body.url.trim() : '';
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (!url && !text) {
+    return NextResponse.json({ error: 'url or text is required' }, { status: 400 });
   }
-  if (typeof body.url !== 'string' || !/^https?:\/\//i.test(body.url)) {
+  if (url && !/^https?:\/\//i.test(url)) {
     return NextResponse.json({ error: 'invalid url' }, { status: 400 });
   }
 
   try {
-    const result = await runRecipePipeline({
-      url: body.url,
-      store: STORES[body.store],
-      preferences: typeof body.preferences === 'string' ? body.preferences : '',
-    });
-    return NextResponse.json(result);
+    if (url) {
+      const html = await fetchAndCleanHtml(url);
+      const out = await extract({ html });
+      return NextResponse.json(out);
+    }
+    const out = await extract({ text });
+    return NextResponse.json(out);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown';
-    console.error('[api/recipe]', message);
+    console.error('[api/recipe/extract]', message);
     if (message.startsWith('FETCH_FAILED')) {
       return NextResponse.json({ error: 'FETCH_FAILED', detail: message }, { status: 502 });
     }

@@ -1,26 +1,48 @@
 import { generateObject } from 'ai';
 import { createLlm } from './client';
 import { describeLlmError } from './errors';
-import { ExtractSchema, type Ingredient } from './types';
+import { ExtractResultSchema, type ExtractResult } from './types';
 
-const SYSTEM_PROMPT = `You extract ingredient lists from recipe pages.
+const HTML_PROMPT_PREFIX = `You extract ingredient lists from recipe pages.
 
-INPUT: HTML of a recipe page (any language; typically Spanish or English).
+INPUT: HTML or cleaned text of a recipe page (any language; typically Spanish or English).
 
-TASK: Return a structured ingredient list in **Argentine Spanish (es-AR)**, since the user shops at an Argentine supermarket.
+TASK: Return the recipe title (label) and a structured ingredient list in **Argentine Spanish (es-AR)**.
 
 RULES:
 - Include every ingredient the recipe lists.
 - If the recipe is in another language, translate ingredient names to Argentine Spanish (e.g., "butter" -> "manteca", "avocado" -> "palta", "bell pepper" -> "morrón").
 - Quantities: numeric when given (e.g., "2 cucharadas" -> qty: 2, unit: "cucharada"). Use null when not specified or "to taste".
-- Do NOT invent or assume ingredients that aren't listed.`;
+- Do NOT invent or assume ingredients that aren't listed.
+- Set isLoose to false for a real recipe page.`;
 
-export async function extractIngredients(html: string): Promise<Ingredient[]> {
+const TEXT_PROMPT_PREFIX = `You receive free text from a meal planner UI. It can be:
+A) a recipe with a title and ingredient list (multi-line, has list structure), OR
+B) a single short phrase (≤ 4 words, no list) representing one loose pantry item the user wants to buy.
+
+TASK: Return label + ingredients in **Argentine Spanish (es-AR)**, and set isLoose accordingly.
+
+RULES:
+- Case A: label = recipe title (best guess from the text); ingredients = the listed ingredient lines; isLoose = false.
+- Case B: label = the input itself (cleaned up); ingredients = a single line representing the item; isLoose = true.
+- Translate to Argentine Spanish where appropriate. Quantities numeric when present, null otherwise.`;
+
+export type ExtractInput = { html: string } | { text: string };
+
+export async function extract(input: ExtractInput): Promise<ExtractResult> {
+  if (!('html' in input) && !('text' in input)) {
+    throw new Error('extract requires either html or text');
+  }
+  const prompt =
+    'html' in input
+      ? `${HTML_PROMPT_PREFIX}\n\nHTML:\n${input.html}`
+      : `${TEXT_PROMPT_PREFIX}\n\nINPUT:\n${input.text}`;
+
   try {
     const result = await generateObject({
       model: createLlm(),
-      schema: ExtractSchema,
-      prompt: `${SYSTEM_PROMPT}\n\nHTML:\n${html}`,
+      schema: ExtractResultSchema,
+      prompt,
     });
     return result.object;
   } catch (error) {

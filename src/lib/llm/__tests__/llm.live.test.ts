@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { extractIngredients } from '../extract';
+import { extract } from '../extract';
 import { pickSkus } from '../match';
 
 jest.setTimeout(60_000);
@@ -25,9 +25,9 @@ const SAMPLE_RECIPE_HTML = `
 
 liveDescribe('live LLM integration', () => {
   it('extracts ingredients from a small Spanish recipe', async () => {
-    const ingredients = await extractIngredients(SAMPLE_RECIPE_HTML);
-    expect(ingredients.length).toBeGreaterThanOrEqual(4);
-    const names = ingredients.map((i) => i.name.toLowerCase());
+    const result = await extract({ html: SAMPLE_RECIPE_HTML });
+    expect(result.ingredients.length).toBeGreaterThanOrEqual(4);
+    const names = result.ingredients.map((i) => i.name.toLowerCase());
     expect(names.some((n) => n.includes('spaghetti') || n.includes('fideo') || n.includes('pasta'))).toBe(true);
     expect(names.some((n) => n.includes('huevo'))).toBe(true);
   });
