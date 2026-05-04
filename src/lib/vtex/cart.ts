@@ -1,0 +1,18 @@
+import type { Store } from './types';
+
+export type AddToCartItem = { skuId: string; qty: number };
+
+export function buildAddToCartUrl(store: Store, items: AddToCartItem[]): string {
+  if (items.length === 0) {
+    throw new Error('items is empty');
+  }
+  const parts: string[] = [];
+  for (const item of items) {
+    parts.push(`sku=${encodeURIComponent(item.skuId)}`);
+    parts.push(`qty=${encodeURIComponent(String(item.qty))}`);
+    parts.push(`seller=${encodeURIComponent(store.defaultSeller)}`);
+  }
+  parts.push(`sc=${encodeURIComponent(store.defaultSalesChannel)}`);
+  parts.push(`redirect=true`);
+  return `${store.baseUrl}/checkout/cart/add?${parts.join('&')}`;
+}
