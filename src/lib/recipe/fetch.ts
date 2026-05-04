@@ -1,15 +1,19 @@
-const HEADERS: HeadersInit = {
-  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml',
-  'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
-};
+// Fetches a recipe URL via Jina's free Reader proxy (https://r.jina.ai/<url>) which
+// returns a clean Markdown rendering of the page. Routes the request through Jina's
+// infrastructure, so it bypasses Cloudflare bot detection on the source site (our
+// server-side `fetch` gets 403'd by some sites that work fine in the user's browser).
+// Bonus: Markdown is smaller than raw HTML, which means cheaper LLM extraction.
+const JINA_PROXY = 'https://r.jina.ai/';
 
 const MIN_CLEANED_LENGTH = 100;
 
 export async function fetchAndCleanHtml(url: string): Promise<string> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+    response = await fetch(`${JINA_PROXY}${url}`, {
+      headers: { Accept: 'text/plain' },
+      redirect: 'follow',
+    });
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'unknown';
     throw new Error(`FETCH_FAILED: ${detail}`);
@@ -17,20 +21,9 @@ export async function fetchAndCleanHtml(url: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`FETCH_FAILED: ${response.status}`);
   }
-  const html = await response.text();
-  const cleaned = clean(html);
-  if (cleaned.length < MIN_CLEANED_LENGTH) {
+  const text = (await response.text()).trim();
+  if (text.length < MIN_CLEANED_LENGTH) {
     throw new Error('EMPTY_RECIPE');
   }
-  return cleaned;
-}
-
-function clean(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return text;
 }

@@ -9,30 +9,23 @@ global.fetch = mockFetch as unknown as typeof fetch;
 beforeEach(() => mockFetch.mockReset());
 
 describe('fetchAndCleanHtml', () => {
-  it('returns cleaned text content with scripts and styles removed', async () => {
-    const html = `<html><head>
-        <script>var x = 1;</script>
-        <style>.a{color:red}</style>
-        <title>Recipe</title>
-      </head><body>
-        <h1>Pasta carbonara</h1>
-        <ul><li>200g pasta</li><li>2 huevos</li></ul>
-        <script>tracking()</script>
-      </body></html>`;
-    mockFetch.mockResolvedValueOnce(new Response(html, { status: 200, headers: { 'Content-Type': 'text/html' } }));
+  it('routes the request through r.jina.ai with the source URL appended', async () => {
+    const markdown = `# Empanadas de pollo\n\n## Ingredientes\n- 200 g de pollo\n- 1 cebolla\n- masa para empanadas\n\n## Preparación\n${'paso '.repeat(50)}`;
+    mockFetch.mockResolvedValueOnce(new Response(markdown, { status: 200 }));
 
-    const cleaned = await fetchAndCleanHtml('https://example.test/recipe');
+    const cleaned = await fetchAndCleanHtml('https://alicante.com.ar/receta/empanadas');
 
-    expect(cleaned).not.toContain('var x = 1');
-    expect(cleaned).not.toContain('color:red');
-    expect(cleaned).toContain('Pasta carbonara');
-    expect(cleaned).toContain('200g pasta');
-    expect(cleaned).toContain('2 huevos');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://r.jina.ai/https://alicante.com.ar/receta/empanadas',
+      expect.objectContaining({ redirect: 'follow' }),
+    );
+    expect(cleaned).toContain('Empanadas de pollo');
+    expect(cleaned).toContain('200 g de pollo');
   });
 
-  it('throws FETCH_FAILED on non-2xx', async () => {
-    mockFetch.mockResolvedValueOnce(new Response('not found', { status: 404 }));
-    await expect(fetchAndCleanHtml('https://example.test/missing')).rejects.toThrow(/FETCH_FAILED.*404/);
+  it('throws FETCH_FAILED when the proxy returns non-2xx', async () => {
+    mockFetch.mockResolvedValueOnce(new Response('rate limited', { status: 429 }));
+    await expect(fetchAndCleanHtml('https://example.test/x')).rejects.toThrow(/FETCH_FAILED.*429/);
   });
 
   it('throws FETCH_FAILED on network error', async () => {
@@ -40,18 +33,8 @@ describe('fetchAndCleanHtml', () => {
     await expect(fetchAndCleanHtml('https://nope.test/x')).rejects.toThrow(/FETCH_FAILED/);
   });
 
-  it('throws EMPTY_RECIPE if cleaned content is < 500 chars', async () => {
-    mockFetch.mockResolvedValueOnce(new Response('<html><body>tiny</body></html>', { status: 200 }));
+  it('throws EMPTY_RECIPE if the proxy returned barely anything', async () => {
+    mockFetch.mockResolvedValueOnce(new Response('Title: x\n', { status: 200 }));
     await expect(fetchAndCleanHtml('https://example.test/empty')).rejects.toThrow(/EMPTY_RECIPE/);
-  });
-
-  it('uses a browser-like User-Agent header', async () => {
-    const big = `<html><body>${'pasta '.repeat(200)}</body></html>`;
-    mockFetch.mockResolvedValueOnce(new Response(big, { status: 200 }));
-    await fetchAndCleanHtml('https://example.test/x');
-    const call = mockFetch.mock.calls[0];
-    const init = call[1] as RequestInit;
-    const headers = init.headers as Record<string, string>;
-    expect(headers['User-Agent']).toMatch(/Mozilla/);
   });
 });
