@@ -12,36 +12,38 @@ export function useCart(storeId: StoreId | null) {
   }, [storeId]);
 
   const persist = useCallback(
-    (next: CartItem[]) => {
-      setItems(next);
-      if (storeId) writeCart(storeId, next);
+    (updater: (prev: CartItem[]) => CartItem[]) => {
+      setItems((prev) => {
+        const next = updater(prev);
+        if (storeId) writeCart(storeId, next);
+        return next;
+      });
     },
     [storeId],
   );
 
   const addItem = useCallback(
     (item: CartItem) => {
-      const existing = items.find((i) => i.skuId === item.skuId);
-      const next = existing
-        ? items.map((i) => (i.skuId === item.skuId ? { ...i, qty: i.qty + item.qty } : i))
-        : [...items, item];
-      persist(next);
+      persist((prev) => {
+        const existing = prev.find((i) => i.skuId === item.skuId);
+        return existing
+          ? prev.map((i) => (i.skuId === item.skuId ? { ...i, qty: i.qty + item.qty } : i))
+          : [...prev, item];
+      });
     },
-    [items, persist],
+    [persist],
   );
 
   const setQty = useCallback(
     (skuId: string, qty: number) => {
-      if (qty <= 0) {
-        persist(items.filter((i) => i.skuId !== skuId));
-      } else {
-        persist(items.map((i) => (i.skuId === skuId ? { ...i, qty } : i)));
-      }
+      persist((prev) =>
+        qty <= 0 ? prev.filter((i) => i.skuId !== skuId) : prev.map((i) => (i.skuId === skuId ? { ...i, qty } : i)),
+      );
     },
-    [items, persist],
+    [persist],
   );
 
-  const remove = useCallback((skuId: string) => persist(items.filter((i) => i.skuId !== skuId)), [items, persist]);
+  const remove = useCallback((skuId: string) => persist((prev) => prev.filter((i) => i.skuId !== skuId)), [persist]);
 
   const clear = useCallback(() => {
     setItems([]);
