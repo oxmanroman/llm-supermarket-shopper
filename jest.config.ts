@@ -14,6 +14,10 @@ const config: Config = {
   testMatch: ['<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}', '<rootDir>/src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
   // Explicitly exclude playwright tests directory
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/tests/', '<rootDir>/test/'],
+  // Map tsconfig path alias `~/*` -> `src/*` for Jest
+  moduleNameMapper: {
+    '^~/(.*)$': '<rootDir>/src/$1',
+  },
   passWithNoTests: true,
 };
 
