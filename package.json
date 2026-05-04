@@ -41,9 +41,12 @@
     "@mui/material": "6.4.5",
     "@mui/material-nextjs": "6.4.3",
     "@next/eslint-plugin-next": "15.3.3",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
+    "ai": "^6.0.174",
     "next": "15.5.9",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "1.44.2",
