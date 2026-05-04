@@ -1,5 +1,6 @@
 import { generateObject } from 'ai';
 import { createLlm } from './client';
+import { describeLlmError } from './errors';
 import { ExtractSchema, type Ingredient } from './types';
 
 const SYSTEM_PROMPT = `You extract ingredient lists from recipe pages.
@@ -23,8 +24,9 @@ export async function extractIngredients(html: string): Promise<Ingredient[]> {
     });
     return result.object;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown';
+    const detail = describeLlmError(error);
     if (detail.startsWith('MISSING_API_KEY')) throw error;
+    console.error('[llm/extract] full error:', error);
     throw new Error(`LLM_FAILED: ${detail}`);
   }
 }

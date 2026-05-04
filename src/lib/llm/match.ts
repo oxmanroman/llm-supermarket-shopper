@@ -1,6 +1,7 @@
 import { generateObject } from 'ai';
 import type { Product } from '~/lib/vtex/types';
 import { createLlm } from './client';
+import { describeLlmError } from './errors';
 import { MatchSchema, type Ingredient, type Pick } from './types';
 
 const SYSTEM_PROMPT = `You match recipe ingredients to supermarket products.
@@ -35,8 +36,9 @@ export async function pickSkus(input: PickInput): Promise<Pick[]> {
     });
     return result.object;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown';
+    const detail = describeLlmError(error);
     if (detail.startsWith('MISSING_API_KEY')) throw error;
+    console.error('[llm/match] full error:', error);
     throw new Error(`LLM_FAILED: ${detail}`);
   }
 }
