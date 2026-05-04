@@ -2,9 +2,9 @@ import { buildAddToCartUrl } from '../cart';
 import { STORES } from '../stores';
 
 describe('buildAddToCartUrl', () => {
-  it('builds a single-item URL for Jumbo', () => {
+  it('builds a single-item URL for Jumbo using its sc=32 channel', () => {
     const url = buildAddToCartUrl(STORES.jumbo, [{ skuId: '12345', qty: 1 }]);
-    expect(url).toBe('https://www.jumbo.com.ar/checkout/cart/add?sku=12345&qty=1&seller=1&sc=1&redirect=true');
+    expect(url).toBe('https://www.jumbo.com.ar/checkout/cart/add?sku=12345&qty=1&seller=1&sc=32&redirect=true');
   });
 
   it('builds a multi-item URL for Carrefour with repeated triples', () => {

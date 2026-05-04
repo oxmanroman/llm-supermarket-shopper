@@ -1,11 +1,14 @@
 import type { Store, StoreId } from './types';
 
+// `defaultSalesChannel` per store was determined by inspecting each storefront's
+// /api/sessions response: the `vtex_segment` cookie's `channel` field. Mismatched
+// channels cause cart-add to silently fail with ORD027 ("item not found or unavailable").
 export const STORES: Record<StoreId, Store> = {
   jumbo: {
     id: 'jumbo',
     name: 'Jumbo',
     baseUrl: 'https://www.jumbo.com.ar',
-    defaultSalesChannel: '1',
+    defaultSalesChannel: '32',
     defaultSeller: '1',
   },
   carrefour: {

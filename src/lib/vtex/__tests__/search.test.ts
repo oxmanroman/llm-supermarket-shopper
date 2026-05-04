@@ -48,7 +48,7 @@ describe('productSearch', () => {
       },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://www.jumbo.com.ar/api/catalog_system/pub/products/search/?ft=leche&_from=0&_to=11',
+      'https://www.jumbo.com.ar/api/catalog_system/pub/products/search/?ft=leche&_from=0&_to=11&sc=32',
       expect.objectContaining({
         headers: expect.objectContaining({
           'Accept-Language': 'es-AR,es;q=0.9',

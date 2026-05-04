@@ -23,7 +23,7 @@ const PAGE_SIZE = 12;
 export async function productSearch(store: Store, query: string): Promise<Product[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const path = `/api/catalog_system/pub/products/search/?ft=${encodeURIComponent(trimmed)}&_from=0&_to=${PAGE_SIZE - 1}`;
+  const path = `/api/catalog_system/pub/products/search/?ft=${encodeURIComponent(trimmed)}&_from=0&_to=${PAGE_SIZE - 1}&sc=${store.defaultSalesChannel}`;
   const response = await vtexFetch(store, path);
   const data = (await response.json()) as VtexProduct[];
   const products: Product[] = [];
