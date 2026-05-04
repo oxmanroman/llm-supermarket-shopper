@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Alert, Box, Container, Snackbar, Typography } from '@mui/material';
 import { CartDrawer, Navbar, RecipeInput, type RecipeResult, SearchPage, StoreSelectModal } from '~/containers';
-import { useCart, useStore } from '~/hooks';
+import { useCart } from '~/hooks/useCart';
+import { useStore } from '~/hooks/useStore';
 
 type SnackState = { severity: 'success' | 'error'; message: string } | null;
 
