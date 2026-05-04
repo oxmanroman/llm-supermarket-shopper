@@ -4,8 +4,8 @@ import { Providers } from '~/providers';
 import { LayoutContent } from './layout-content';
 
 export const metadata: Metadata = {
-  title: 'Supermarket',
-  description: 'Recipe-to-cart helper for Argentine supermarkets.',
+  title: 'Plan de compras',
+  description: 'Recetas semanales y cart-fill para supermercados argentinos.',
   robots: 'noindex',
   icons: { icon: '/favicon.ico' },
 };
