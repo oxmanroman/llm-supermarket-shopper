@@ -1,5 +1,5 @@
+import type { Product, VtexStore } from '~/lib/store/types';
 import { vtexFetch } from './client';
-import type { Product, Store } from './types';
 
 type VtexItem = {
   itemId: string;
@@ -20,7 +20,7 @@ type VtexProduct = {
 
 const PAGE_SIZE = 12;
 
-export async function productSearch(store: Store, query: string): Promise<Product[]> {
+export async function vtexSearch(store: VtexStore, query: string): Promise<Product[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   const path = `/api/catalog_system/pub/products/search/?ft=${encodeURIComponent(trimmed)}&_from=0&_to=${PAGE_SIZE - 1}&sc=${store.defaultSalesChannel}`;

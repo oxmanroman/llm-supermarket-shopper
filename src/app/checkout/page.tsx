@@ -6,7 +6,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Container, IconButton, Typography } from '@mui/material';
 import { CheckoutLoading, CheckoutResolution, CheckoutStoreSelect, Navbar } from '~/containers';
 import { usePlan } from '~/hooks';
-import type { StoreId } from '~/lib/vtex/types';
+import type { StoreId } from '~/lib/store';
 import type { Resolution } from '~/types/plan';
 
 export default function CheckoutPage() {

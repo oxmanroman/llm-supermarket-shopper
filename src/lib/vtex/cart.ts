@@ -1,8 +1,8 @@
-import type { Store } from './types';
+import type { VtexStore } from '~/lib/store/types';
 
-export type AddToCartItem = { skuId: string; qty: number };
+export type VtexAddToCartItem = { skuId: string; qty: number };
 
-export function buildAddToCartUrl(store: Store, items: AddToCartItem[]): string {
+export function buildVtexAddToCartUrl(store: VtexStore, items: VtexAddToCartItem[]): string {
   if (items.length === 0) {
     throw new Error('items is empty');
   }

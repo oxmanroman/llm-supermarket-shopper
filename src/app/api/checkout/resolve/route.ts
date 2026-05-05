@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { resolve } from '~/lib/checkout/resolve';
-import { STORES, isStoreId } from '~/lib/vtex/stores';
+import { STORES, isStoreId } from '~/lib/store';
 import { RecipeSchema } from '~/types/plan';
 
 const BodySchema = z.object({

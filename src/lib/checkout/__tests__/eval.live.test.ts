@@ -16,7 +16,7 @@
  * what we want to evaluate; URL fetch is covered separately.
  */
 import { extract } from '~/lib/llm/extract';
-import { STORES } from '~/lib/vtex/stores';
+import { STORES } from '~/lib/store';
 import type { Recipe } from '~/types/plan';
 import { resolve } from '../resolve';
 

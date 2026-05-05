@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
   Accordion,
@@ -33,8 +34,8 @@ import {
 } from '@mui/material';
 import { usePlan } from '~/hooks';
 import { recomputeRedirectUrl } from '~/lib/checkout/resolve';
-import { STORES } from '~/lib/vtex/stores';
-import type { Product } from '~/lib/vtex/types';
+import { STORES } from '~/lib/store';
+import type { Product } from '~/lib/store';
 import type { AggregatedIngredient, Resolution, SkippedIngredient } from '~/types/plan';
 import { ProductSearch } from './ProductSearch';
 
@@ -56,6 +57,7 @@ export const CheckoutResolution = ({ onBack }: Props) => {
 
   if (!r || r.state !== 'ready') return null;
   const store = STORES[r.storeId];
+  const isCoto = store.platform === 'coto';
 
   const apply = (fn: (curr: ReadyResolution) => ReadyResolution) => {
     update((p) => {
@@ -143,6 +145,12 @@ export const CheckoutResolution = ({ onBack }: Props) => {
         </Stack>
       </Stack>
 
+      {isCoto && r.matched.length > 0 && (
+        <Alert severity='info' sx={{ mb: 2 }}>
+          Coto no permite cargar el carrito desde un link externo. Usá el botón <strong>Abrir</strong> de cada producto
+          para agregarlo manualmente desde su página.
+        </Alert>
+      )}
       <Typography variant='subtitle1' sx={{ mb: 1 }}>
         Listo para enviar
       </Typography>
@@ -193,6 +201,19 @@ export const CheckoutResolution = ({ onBack }: Props) => {
                 <Typography variant='body2' sx={{ minWidth: 80, textAlign: 'right' }}>
                   ${m.picked.price.toLocaleString('es-AR')}
                 </Typography>
+                {isCoto && m.picked.productUrl && (
+                  <IconButton
+                    size='small'
+                    component='a'
+                    href={m.picked.productUrl}
+                    target='_blank'
+                    rel='noopener'
+                    aria-label='Abrir en Coto'
+                    data-testid={`open-pdp-${m.aggregatedId}`}
+                  >
+                    <OpenInNewIcon fontSize='small' />
+                  </IconButton>
+                )}
                 <IconButton
                   size='small'
                   onClick={() => setSwapOpenFor(open ? null : m.aggregatedId)}

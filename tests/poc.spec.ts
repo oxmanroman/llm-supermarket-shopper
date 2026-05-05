@@ -135,6 +135,75 @@ test('checkout → resolution screen → send opens new tab', async ({ page, con
   await popup.close();
 });
 
+test('checkout with COTO: alert + per-product PDP open + send opens first PDP', async ({ page, context }) => {
+  // Use COTO-flavored mock data: each picked product has a productUrl, and
+  // the resolve API returns the first PDP as the redirectUrl.
+  const cotoSampleResolve = {
+    matched: [
+      {
+        aggregatedId: 'a-onion',
+        ingredient: {
+          id: 'a-onion',
+          name: 'cebolla',
+          qty: 2,
+          unit: null,
+          sources: [{ recipeId: 'r1', recipeLabel: 'Empanadas de pollo', originalText: '1 cebolla' }],
+        },
+        picked: {
+          skuId: '00012345',
+          productId: 'prod00012345',
+          name: 'Cebolla Por Kg',
+          price: 1500,
+          available: true,
+          productUrl: 'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-00012345-00012345-200',
+        },
+        confidence: 'high',
+        cartQty: 1,
+      },
+    ],
+    unmatched: [],
+    skipped: [],
+    candidates: { 'a-onion': [] },
+    redirectUrl: 'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-00012345-00012345-200',
+  };
+  await context.unroute('**/api/**');
+  await context.route('**/api/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('/api/recipe/extract')) {
+      await route.fulfill({ status: 200, body: JSON.stringify(sampleExtractURL) });
+    } else if (url.includes('/api/checkout/resolve')) {
+      await route.fulfill({ status: 200, body: JSON.stringify(cotoSampleResolve) });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.goto('/');
+  await page.getByTestId('add-input').fill('https://example.test/empanadas');
+  await page.getByTestId('add-submit').click();
+  await expect(page.getByText('Empanadas de pollo')).toBeVisible();
+
+  await page.getByTestId('checkout-button').click();
+  await expect(page).toHaveURL(/\/checkout$/);
+  await page.getByTestId('store-tile-coto').click();
+  await page.getByTestId('store-continue').click();
+
+  await expect(page.getByTestId('matched-a-onion')).toBeVisible();
+  // COTO-only alert + per-product PDP link
+  await expect(page.getByText(/Coto no permite cargar el carrito/)).toBeVisible();
+  await expect(page.getByTestId('open-pdp-a-onion')).toHaveAttribute(
+    'href',
+    'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-00012345-00012345-200',
+  );
+
+  const popupPromise = context.waitForEvent('page');
+  await page.getByTestId('send-to-store').click();
+  const popup = await popupPromise;
+  await popup.waitForURL(/cotodigital\.com\.ar/, { timeout: 10_000 });
+  expect(popup.url()).toMatch(/cotodigital\.com\.ar\/sitios\/cdigi\/productos\//);
+  await popup.close();
+});
+
 test('preferences dialog persists value across reopen', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('open-preferences-button').click();

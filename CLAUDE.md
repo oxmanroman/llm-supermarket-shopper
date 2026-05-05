@@ -4,7 +4,7 @@ Working notes for AI agents (Claude Code, Cursor, etc.) operating in this repo. 
 
 ## Project in one paragraph
 
-Personal weekly meal planner for Argentine supermarkets (Jumbo, Carrefour, both VTEX). User pastes recipe URLs / pasted recipe text / loose ingredients on the home page. At checkout, an LLM aggregates duplicates across recipes, searches each on the chosen store, picks SKUs and per-package cart quantities, and opens the supermarket's add-to-cart URL in a new tab. Backend integration is anonymous (the user pays on the supermarket's own hosted checkout). Two users total; data lives entirely in localStorage. No auth, no DB.
+Personal weekly meal planner for Argentine supermarkets. Supported stores: Jumbo and Carrefour (both VTEX) plus Coto (custom Angular SPA backed by Constructor.io search + auth-gated cart). User pastes recipe URLs / pasted recipe text / loose ingredients on the home page. At checkout, an LLM aggregates duplicates across recipes, searches each on the chosen store, picks SKUs and per-package cart quantities, and opens the supermarket's add-to-cart URL (VTEX) or first matched product PDP (Coto) in a new tab. Backend integration is anonymous (the user pays on the supermarket's own hosted checkout). Two users total; data lives entirely in localStorage. No auth, no DB.
 
 ## Stack
 
@@ -23,7 +23,7 @@ src/
     checkout/page.tsx                     state-machine page: store-select → loading → resolution
     api/recipe/extract/route.ts           POST: URL or text → { label, ingredients, isLoose }
     api/checkout/resolve/route.ts         POST: full resolve pipeline
-    api/search/route.ts                   GET: VTEX search proxy (used by manual replacement)
+    api/search/route.ts                   GET: store search proxy (used by manual replacement)
   lib/
     recipe/fetch.ts                       fetches recipe URL via r.jina.ai proxy
     llm/extract.ts                        extract LLM (URL OR text → ingredients)
@@ -33,9 +33,13 @@ src/
     llm/errors.ts                         describeLlmError() — surfaces upstream details
     checkout/aggregate.ts                 aggregate LLM (per-recipe → unified shopping list)
     checkout/resolve.ts                   orchestrator: aggregate → search → match → URL build
-    vtex/search.ts                        productSearch(store, query)
-    vtex/cart.ts                          buildAddToCartUrl(store, items)
-    vtex/stores.ts                        STORES table; Jumbo=32 SC, Carrefour=1 SC
+    store/types.ts                        Store discriminated union (platform: 'vtex'|'coto'), Product
+    store/stores.ts                       STORES table: jumbo (VTEX, sc=32), carrefour (VTEX, sc=1), coto (custom)
+    store/dispatch.ts                     productSearch / buildAddToCartUrl — switch on store.platform
+    vtex/search.ts                        vtexSearch(store, query) — VTEX catalog API adapter
+    vtex/cart.ts                          buildVtexAddToCartUrl(store, items) — VTEX cart-prefill URL
+    coto/search.ts                        cotoSearch(store, query) — Constructor.io adapter
+    coto/cart.ts                          buildCotoHandoffUrl(store, items) — first matched PDP URL
     storage/plan.ts                       readPlan/writePlan/mutatePlan + v2 migration
     storage/preferences.ts                free-text preferences (free-text)
   hooks/
@@ -105,6 +109,22 @@ Any change to `Plan.recipes` invalidates the cached resolution. Otherwise after 
 ### 9. Sending to supermarket no longer transitions UI state
 
 Clicking "Enviar a {store}" only opens the new tab. The resolution screen stays put so the user can compare what we sent against the supermarket cart. "Vaciar plan" is the explicit gesture to clear the plan; it lives at the bottom of the resolution screen with a confirmation dialog.
+
+### 10. Coto has no anonymous cart-add URL
+
+Coto is **not** VTEX. Search runs on Constructor.io with a public key extracted from the SPA bundle (`STORES.coto.constructorKey`); no auth required. But the cart endpoint (`cCarritoActor/addOrRemoveItemToOrderV2`) is auth-gated and HMAC-signed, and `/carrito` is in the SPA's `authRoutes` list. There is no `?sku=X&qty=N` URL hand-off equivalent.
+
+The compromise: `buildCotoHandoffUrl` returns the **first matched product's PDP URL** (or the home page if no PDP URL is available) so "Enviar a Coto" lands on a real product page. The resolution screen detects `store.platform === 'coto'`, shows an info Alert explaining the constraint, and renders an "Abrir" icon-button per matched product that opens its PDP in a new tab — the user walks the list and clicks "+" on each PDP manually.
+
+Implication for new platform integrations: don't assume a `cart/add?sku=...` URL exists. Check `authRoutes` and look for HMAC/login requirements before promising a one-click hand-off.
+
+### 11. Constructor.io coerces leading-zero SKU strings to numbers
+
+COTO's Constructor.io feed declares `sku_plu` as a string (e.g. `"00008899"`), but JSON serialization drops the leading zeros and the value comes back as a JS number (`8899`). `cotoSearch` coerces with `String(rawSkuId)` at the boundary so downstream code can treat `Product.skuId` uniformly as a string. The PDP URL is built from `data.url` (which is a real string), not from the SKU id, so PDP links remain stable.
+
+### 12. Store types are a discriminated union, not a flat record
+
+`Store = VtexStore | CotoStore` discriminated by `platform: 'vtex' | 'coto'`. `VtexStore` has `defaultSalesChannel` + `defaultSeller`; `CotoStore` has `constructorKey`. Public dispatchers (`productSearch`, `buildAddToCartUrl`) live in `~/lib/store/dispatch.ts` and `switch` on `store.platform`. Adapters (`~/lib/vtex/`, `~/lib/coto/`) take the narrowed store type. When adding a new platform: extend the union, add an adapter folder, extend the two dispatcher switches, and TypeScript will tell you the rest.
 
 ## Test patterns
 

@@ -3,11 +3,13 @@
  */
 jest.mock('../aggregate', () => ({ aggregate: jest.fn() }));
 jest.mock('~/lib/llm/match', () => ({ pickSkus: jest.fn() }));
-jest.mock('~/lib/vtex/search', () => ({ productSearch: jest.fn() }));
+jest.mock('~/lib/store/dispatch', () => {
+  const actual = jest.requireActual('~/lib/store/dispatch');
+  return { ...actual, productSearch: jest.fn() };
+});
 
 import { pickSkus } from '~/lib/llm/match';
-import { productSearch } from '~/lib/vtex/search';
-import { STORES } from '~/lib/vtex/stores';
+import { STORES, productSearch } from '~/lib/store';
 import { aggregate } from '../aggregate';
 import { recomputeRedirectUrl, resolve } from '../resolve';
 
@@ -146,5 +148,46 @@ describe('resolve', () => {
     );
     expect(url).toMatch(/sku=m1&qty=1&seller=1/);
     expect(url).not.toMatch(/qty=240/);
+  });
+
+  it('recomputeRedirectUrl for COTO returns the first matched product PDP URL', () => {
+    const url = recomputeRedirectUrl(
+      [
+        {
+          aggregatedId: 'a',
+          ingredient: ingMilk,
+          picked: {
+            ...milkCandidates[0],
+            productUrl: 'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-1-1-200',
+          },
+          confidence: 'high',
+          cartQty: 1,
+        },
+      ],
+      STORES.coto,
+    );
+    expect(url).toBe('https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-1-1-200');
+  });
+
+  it('resolve dispatches to the COTO adapter when storeId is coto', async () => {
+    mockAggregate.mockResolvedValueOnce({ aggregated: [ingMilk], skipped: [] });
+    const cotoMilkCandidate = {
+      skuId: '00008899',
+      productId: 'prod00008899',
+      name: 'Leche Larga Vida Entera COTO Ttb 1 L',
+      price: 2199,
+      available: true,
+      productUrl: 'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-00008899-00008899-200',
+    };
+    mockSearch.mockResolvedValueOnce([cotoMilkCandidate]);
+    mockPick.mockResolvedValueOnce([
+      { ingredientIndex: 0, pickedSkuId: '00008899', cartQty: 1, confidence: 'high', reason: 'COTO own brand' },
+    ]);
+
+    const out = await resolve({ store: STORES.coto, recipes: [], preferences: '' });
+
+    expect(out.matched).toHaveLength(1);
+    expect(out.matched[0].picked.productUrl).toMatch(/cotodigital\.com\.ar\/sitios\/cdigi\/productos\//);
+    expect(out.redirectUrl).toBe(cotoMilkCandidate.productUrl);
   });
 });

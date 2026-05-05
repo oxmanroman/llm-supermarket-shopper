@@ -1,13 +1,16 @@
 /**
  * @jest-environment node
  */
-import { buildAddToCartUrl } from '../cart';
-import { productSearch } from '../search';
-import { STORES, STORE_IDS } from '../stores';
+import { STORES } from '~/lib/store';
+import type { VtexStore } from '~/lib/store';
+import { buildVtexAddToCartUrl } from '../cart';
+import { vtexSearch } from '../search';
 
 jest.setTimeout(30_000);
 
 const liveDescribe = process.env.LIVE_TESTS === '1' ? describe : describe.skip;
+
+const VTEX_STORES: VtexStore[] = Object.values(STORES).filter((store): store is VtexStore => store.platform === 'vtex');
 
 type OrderFormItem = { id: string; name: string; quantity: number };
 type OrderFormMessage = { code: string; status: string; text: string };
@@ -18,11 +21,9 @@ type OrderForm = {
   messages: OrderFormMessage[];
 };
 
-liveDescribe.each(STORE_IDS)('live VTEX integration: %s', (storeId) => {
-  const store = STORES[storeId];
-
+liveDescribe.each(VTEX_STORES.map((s) => [s.id, s] as const))('live VTEX integration: %s', (_id, store) => {
   it('returns products for "leche"', async () => {
-    const products = await productSearch(store, 'leche');
+    const products = await vtexSearch(store, 'leche');
     expect(products.length).toBeGreaterThan(0);
     const first = products[0];
     expect(first.skuId).toMatch(/^\d+$/);
@@ -31,8 +32,8 @@ liveDescribe.each(STORE_IDS)('live VTEX integration: %s', (storeId) => {
   });
 
   it('builds a syntactically valid add-to-cart URL', async () => {
-    const products = await productSearch(store, 'leche');
-    const url = buildAddToCartUrl(store, [{ skuId: products[0].skuId, qty: 1 }]);
+    const products = await vtexSearch(store, 'leche');
+    const url = buildVtexAddToCartUrl(store, [{ skuId: products[0].skuId, qty: 1 }]);
     const parsed = new URL(url);
     expect(parsed.host).toBe(new URL(store.baseUrl).host);
     expect(parsed.pathname).toBe('/checkout/cart/add');
@@ -40,7 +41,7 @@ liveDescribe.each(STORE_IDS)('live VTEX integration: %s', (storeId) => {
   });
 
   it('creates an orderForm and adds an item via the public Checkout API', async () => {
-    const products = await productSearch(store, 'leche');
+    const products = await vtexSearch(store, 'leche');
     const sku = products[0].skuId;
     const sc = store.defaultSalesChannel;
 

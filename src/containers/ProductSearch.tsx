@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { Product, StoreId } from '~/lib/vtex/types';
+import type { Product, StoreId } from '~/lib/store';
 
 type Props = {
   storeId: StoreId;

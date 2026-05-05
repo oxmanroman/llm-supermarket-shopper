@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import type { Product } from '~/lib/vtex/types';
+import type { Product } from '~/lib/store';
 import { createLlm } from './client';
 import { describeLlmError } from './errors';
 import { MatchSchema, type Ingredient, type Pick } from './types';

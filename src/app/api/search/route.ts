@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { productSearch } from '~/lib/vtex/search';
-import { STORES, isStoreId } from '~/lib/vtex/stores';
+import { STORES, isStoreId, productSearch } from '~/lib/store';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

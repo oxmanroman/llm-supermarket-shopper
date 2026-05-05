@@ -1,8 +1,12 @@
 /**
  * @jest-environment node
  */
-import { productSearch } from '../search';
-import { STORES } from '../stores';
+import { STORES } from '~/lib/store';
+import type { VtexStore } from '~/lib/store';
+import { vtexSearch } from '../search';
+
+const jumbo = STORES.jumbo as VtexStore;
+const carrefour = STORES.carrefour as VtexStore;
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
@@ -28,13 +32,13 @@ const sampleVtexResponse = [
   },
 ];
 
-describe('productSearch', () => {
+describe('vtexSearch', () => {
   beforeEach(() => mockFetch.mockReset());
 
   it('normalizes a Jumbo response into Product[]', async () => {
     mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(sampleVtexResponse), { status: 200 }));
 
-    const products = await productSearch(STORES.jumbo, 'leche');
+    const products = await vtexSearch(jumbo, 'leche');
 
     expect(products).toEqual([
       {
@@ -60,13 +64,13 @@ describe('productSearch', () => {
 
   it('returns [] when VTEX returns empty array', async () => {
     mockFetch.mockResolvedValueOnce(new Response('[]', { status: 200 }));
-    const products = await productSearch(STORES.jumbo, 'xyzzz');
+    const products = await vtexSearch(jumbo, 'xyzzz');
     expect(products).toEqual([]);
   });
 
   it('throws when VTEX returns non-2xx', async () => {
     mockFetch.mockResolvedValueOnce(new Response('blocked', { status: 403 }));
-    await expect(productSearch(STORES.carrefour, 'leche')).rejects.toThrow(/403/);
+    await expect(vtexSearch(carrefour, 'leche')).rejects.toThrow(/403/);
   });
 
   it('skips products with no usable item/seller', async () => {
@@ -75,7 +79,7 @@ describe('productSearch', () => {
         status: 200,
       }),
     );
-    const products = await productSearch(STORES.jumbo, 'leche');
+    const products = await vtexSearch(jumbo, 'leche');
     expect(products).toHaveLength(1);
   });
 });

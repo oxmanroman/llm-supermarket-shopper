@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Box, Button, Card, CardActionArea, Stack, Typography } from '@mui/material';
-import { STORES, STORE_IDS } from '~/lib/vtex/stores';
-import type { StoreId } from '~/lib/vtex/types';
+import { STORES, STORE_IDS } from '~/lib/store';
+import type { StoreId } from '~/lib/store';
 
 type Props = {
   initialStoreId: StoreId | null;

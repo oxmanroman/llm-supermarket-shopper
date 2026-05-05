@@ -1,7 +1,6 @@
 import { pickSkus } from '~/lib/llm/match';
-import { buildAddToCartUrl } from '~/lib/vtex/cart';
-import { productSearch } from '~/lib/vtex/search';
-import type { Product, Store } from '~/lib/vtex/types';
+import { buildAddToCartUrl, productSearch } from '~/lib/store';
+import type { Product, Store } from '~/lib/store';
 import type { AggregatedIngredient, MatchedItem, Recipe, SkippedIngredient } from '~/types/plan';
 import { aggregate } from './aggregate';
 
@@ -68,6 +67,7 @@ export function recomputeRedirectUrl(matched: MatchedItem[], store: Store): stri
     matched.map((m) => ({
       skuId: m.picked.skuId,
       qty: Math.max(1, Math.round(m.cartQty)),
+      product: m.picked,
     })),
   );
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Product, StoreId } from '~/lib/vtex/types';
+import type { Product, StoreId } from '~/lib/store';
 
 export const IngredientLineSchema = z.object({
   id: z.string(),
@@ -86,7 +86,7 @@ export type Resolution =
       message: string;
     };
 
-const StoreIdSchema = z.enum(['jumbo', 'carrefour']);
+const StoreIdSchema = z.enum(['jumbo', 'carrefour', 'coto']);
 
 export const PlanSchema = z.object({
   version: z.literal(3),
