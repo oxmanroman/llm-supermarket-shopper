@@ -15,6 +15,19 @@ export default function Home() {
   const { plan, hydrated, update } = usePlan();
   const [snack, setSnack] = useState<SnackState>(null);
 
+  // Any change to recipes invalidates a cached resolution: the previous
+  // matched/unmatched/skipped lists were computed against a different recipe
+  // set, and a 'handed-off' state is for a shipment that no longer matches
+  // the current plan. Otherwise clicking Checkout after edits would show a
+  // stale banner or list. UI-only mutations (collapse toggle) keep the
+  // resolution intact and use plain `update`.
+  const updateRecipes = (recipesFn: (recipes: Recipe[]) => Recipe[]) =>
+    update((p) => ({
+      ...p,
+      recipes: recipesFn(p.recipes),
+      lastResolution: { state: 'idle' },
+    }));
+
   if (!hydrated) return null;
 
   const handleAdd = async (input: { url: string } | { text: string }) => {
@@ -32,7 +45,7 @@ export default function Home() {
         ingredients: [],
         createdAt: now(),
       };
-      update((p) => ({ ...p, recipes: [...p.recipes, placeholder] }));
+      updateRecipes((recipes) => [...recipes, placeholder]);
       try {
         const res = await fetch('/api/recipe/extract', {
           method: 'POST',
@@ -41,9 +54,8 @@ export default function Home() {
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-        update((p) => ({
-          ...p,
-          recipes: p.recipes.map((r) =>
+        updateRecipes((recipes) =>
+          recipes.map((r) =>
             r.id === id
               ? {
                   ...r,
@@ -55,12 +67,11 @@ export default function Home() {
                 }
               : r,
           ),
-        }));
+        );
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'extract failed';
-        update((p) => ({
-          ...p,
-          recipes: p.recipes.map((r) =>
+        updateRecipes((recipes) =>
+          recipes.map((r) =>
             r.id === id
               ? {
                   ...r,
@@ -68,7 +79,7 @@ export default function Home() {
                 }
               : r,
           ),
-        }));
+        );
       }
       return;
     }
@@ -82,7 +93,7 @@ export default function Home() {
       ingredients: [],
       createdAt: now(),
     };
-    update((p) => ({ ...p, recipes: [...p.recipes, placeholder] }));
+    updateRecipes((recipes) => [...recipes, placeholder]);
     try {
       const res = await fetch('/api/recipe/extract', {
         method: 'POST',
@@ -95,8 +106,8 @@ export default function Home() {
         body.ingredients as { name: string; qty: number | null; unit: string | null; notes?: string }[]
       ).map((i) => ({ id: newId(), text: i.name, qty: i.qty, unit: i.unit, notes: i.notes }));
       if (body.isLoose) {
-        update((p) => {
-          const recipes = p.recipes.filter((r) => r.id !== placeholderId);
+        updateRecipes((existing) => {
+          const recipes = existing.filter((r) => r.id !== placeholderId);
           const looseIdx = recipes.findIndex((r) => r.source.kind === 'loose');
           if (looseIdx === -1) {
             recipes.push({
@@ -112,18 +123,17 @@ export default function Home() {
               ingredients: [...recipes[looseIdx].ingredients, ...ingredients],
             };
           }
-          return { ...p, recipes };
+          return recipes;
         });
       } else {
-        update((p) => ({
-          ...p,
-          recipes: p.recipes.map((r) => (r.id === placeholderId ? { ...r, label: body.label, ingredients } : r)),
-        }));
+        updateRecipes((recipes) =>
+          recipes.map((r) => (r.id === placeholderId ? { ...r, label: body.label, ingredients } : r)),
+        );
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'extract failed';
       setSnack({ severity: 'error', message: msg });
-      update((p) => ({ ...p, recipes: p.recipes.filter((r) => r.id !== placeholderId) }));
+      updateRecipes((recipes) => recipes.filter((r) => r.id !== placeholderId));
     }
   };
 
@@ -131,17 +141,17 @@ export default function Home() {
     const idx = plan.recipes.findIndex((r) => r.id === id);
     if (idx === -1) return;
     const recipe = plan.recipes[idx];
-    update((p) => ({ ...p, recipes: p.recipes.filter((r) => r.id !== id) }));
+    updateRecipes((recipes) => recipes.filter((r) => r.id !== id));
     setSnack({
       severity: 'info',
       message: `"${recipe.label}" eliminada`,
       undo: () => {
-        update((p) => {
-          if (p.recipes.some((r) => r.id === recipe.id)) return p;
-          const recipes = [...p.recipes];
-          const insertIdx = Math.min(idx, recipes.length);
-          recipes.splice(insertIdx, 0, recipe);
-          return { ...p, recipes };
+        updateRecipes((recipes) => {
+          if (recipes.some((r) => r.id === recipe.id)) return recipes;
+          const next = [...recipes];
+          const insertIdx = Math.min(idx, next.length);
+          next.splice(insertIdx, 0, recipe);
+          return next;
         });
         setSnack(null);
       },
@@ -171,19 +181,20 @@ export default function Home() {
               key={recipe.id}
               recipe={recipe}
               onRename={(label) =>
-                update((p) => ({ ...p, recipes: p.recipes.map((r) => (r.id === recipe.id ? { ...r, label } : r)) }))
+                updateRecipes((recipes) => recipes.map((r) => (r.id === recipe.id ? { ...r, label } : r)))
               }
               onRemove={() => removeRecipe(recipe.id)}
               onToggleCollapse={() =>
+                // Collapse is a UI-only flag; intentionally does NOT invalidate
+                // the resolution.
                 update((p) => ({
                   ...p,
                   recipes: p.recipes.map((r) => (r.id === recipe.id ? { ...r, collapsed: !r.collapsed } : r)),
                 }))
               }
               onAddIngredient={(text) =>
-                update((p) => ({
-                  ...p,
-                  recipes: p.recipes.map((r) =>
+                updateRecipes((recipes) =>
+                  recipes.map((r) =>
                     r.id === recipe.id
                       ? {
                           ...r,
@@ -191,12 +202,11 @@ export default function Home() {
                         }
                       : r,
                   ),
-                }))
+                )
               }
               onChangeIngredient={(line) =>
-                update((p) => ({
-                  ...p,
-                  recipes: p.recipes.map((r) =>
+                updateRecipes((recipes) =>
+                  recipes.map((r) =>
                     r.id === recipe.id
                       ? {
                           ...r,
@@ -204,12 +214,11 @@ export default function Home() {
                         }
                       : r,
                   ),
-                }))
+                )
               }
               onRemoveIngredient={(lineId) =>
-                update((p) => ({
-                  ...p,
-                  recipes: p.recipes.map((r) =>
+                updateRecipes((recipes) =>
+                  recipes.map((r) =>
                     r.id === recipe.id
                       ? {
                           ...r,
@@ -217,7 +226,7 @@ export default function Home() {
                         }
                       : r,
                   ),
-                }))
+                )
               }
             />
           ))
