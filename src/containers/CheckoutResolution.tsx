@@ -9,6 +9,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Avatar,
   Box,
   Button,
   Card,
@@ -18,6 +19,7 @@ import {
   IconButton,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemText,
   Stack,
   TextField,
@@ -213,6 +215,19 @@ export const CheckoutResolution = ({ onBack }: Props) => {
                           </Button>
                         }
                       >
+                        <ListItemAvatar>
+                          <Avatar
+                            variant='rounded'
+                            src={cand.imageUrl}
+                            alt=''
+                            sx={{
+                              width: 56,
+                              height: 56,
+                              bgcolor: 'background.default',
+                              '& img': { objectFit: 'contain' },
+                            }}
+                          />
+                        </ListItemAvatar>
                         <ListItemText primary={cand.name} secondary={`$${cand.price.toLocaleString('es-AR')}`} />
                       </ListItem>
                     ))}

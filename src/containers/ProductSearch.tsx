@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   CircularProgress,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemButton,
   ListItemText,
   TextField,
@@ -84,6 +86,14 @@ export const ProductSearch = ({ storeId, initialQuery = '', pickLabel = 'Usar es
             }
           >
             <ListItemButton sx={{ pr: 12 }}>
+              <ListItemAvatar>
+                <Avatar
+                  variant='rounded'
+                  src={p.imageUrl}
+                  alt=''
+                  sx={{ width: 56, height: 56, bgcolor: 'background.default', '& img': { objectFit: 'contain' } }}
+                />
+              </ListItemAvatar>
               <ListItemText primary={p.name} secondary={`$${p.price.toLocaleString('es-AR')}`} />
             </ListItemButton>
           </ListItem>
