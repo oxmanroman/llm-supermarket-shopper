@@ -41,7 +41,7 @@ export const CheckoutResolution = ({ onBack }: Props) => {
 
   const total = useMemo(() => {
     if (!r) return 0;
-    return r.matched.reduce((sum, m) => sum + m.picked.price * Math.max(1, Math.round(m.ingredient.qty ?? 1)), 0);
+    return r.matched.reduce((sum, m) => sum + m.picked.price * Math.max(1, Math.round(m.cartQty)), 0);
   }, [r]);
 
   if (!r || r.state !== 'ready') return null;
@@ -69,19 +69,22 @@ export const CheckoutResolution = ({ onBack }: Props) => {
     apply((curr) => ({ ...curr, matched: curr.matched.filter((m) => m.aggregatedId !== aggId) }));
   };
 
-  const setMatchedQty = (aggId: string, qty: number) => {
-    if (!Number.isFinite(qty) || qty < 1) return;
+  const setMatchedCartQty = (aggId: string, cartQty: number) => {
+    if (!Number.isFinite(cartQty) || cartQty < 1) return;
     apply((curr) => ({
       ...curr,
-      matched: curr.matched.map((m) => (m.aggregatedId === aggId ? { ...m, ingredient: { ...m.ingredient, qty } } : m)),
+      matched: curr.matched.map((m) => (m.aggregatedId === aggId ? { ...m, cartQty } : m)),
     }));
   };
 
   const promoteUnmatched = (aggId: string, picked: Product, ing: AggregatedIngredient) => {
+    // Manual promotion has no matcher-LLM context to compute cartQty; default to 1
+    // and let the user adjust. They had to pick the SKU manually anyway, so they
+    // know what they're buying.
     apply((curr) => ({
       ...curr,
       unmatched: curr.unmatched.filter((u) => u.id !== aggId),
-      matched: [...curr.matched, { aggregatedId: aggId, ingredient: ing, picked, confidence: 'medium' }],
+      matched: [...curr.matched, { aggregatedId: aggId, ingredient: ing, picked, confidence: 'medium', cartQty: 1 }],
     }));
   };
 
@@ -159,15 +162,23 @@ export const CheckoutResolution = ({ onBack }: Props) => {
                     {m.picked.name}
                   </Typography>
                   <Typography variant='caption' color='text.secondary'>
-                    {m.ingredient.name} · de {m.ingredient.sources.map((s) => s.recipeLabel).join(', ') || '—'}
+                    {m.ingredient.name}
+                    {m.ingredient.qty != null
+                      ? ` · receta: ${m.ingredient.qty}${m.ingredient.unit ? ' ' + m.ingredient.unit : ''}`
+                      : ''}
+                    {m.ingredient.sources.length > 0
+                      ? ` · de ${m.ingredient.sources.map((s) => s.recipeLabel).join(', ')}`
+                      : ''}
                   </Typography>
                 </Box>
                 <TextField
                   type='number'
                   size='small'
-                  value={Math.max(1, Math.round(m.ingredient.qty ?? 1))}
-                  onChange={(e) => setMatchedQty(m.aggregatedId, Number.parseInt(e.target.value, 10) || 1)}
+                  label='paquetes'
+                  value={Math.max(1, Math.round(m.cartQty))}
+                  onChange={(e) => setMatchedCartQty(m.aggregatedId, Number.parseInt(e.target.value, 10) || 1)}
                   inputProps={{ min: 1, style: { width: 56 }, 'data-testid': `qty-${m.aggregatedId}` }}
+                  sx={{ width: 92 }}
                 />
                 <Typography variant='body2' sx={{ minWidth: 80, textAlign: 'right' }}>
                   ${m.picked.price.toLocaleString('es-AR')}

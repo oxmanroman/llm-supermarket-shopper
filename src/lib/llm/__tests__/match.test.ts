@@ -20,21 +20,27 @@ const candidates = [
 describe('pickSkus', () => {
   it('builds the prompt without a preferences block when prefs is empty and returns picks', async () => {
     mockGenerate.mockResolvedValueOnce({
-      object: [{ ingredientIndex: 0, pickedSkuId: '1', confidence: 'high', reason: 'whole milk match' }],
+      object: [{ ingredientIndex: 0, pickedSkuId: '1', cartQty: 1, confidence: 'high', reason: 'whole milk match' }],
     } as never);
 
     const result = await pickSkus({ ingredients: [ingredient], candidates: [candidates], preferences: '' });
 
-    expect(result).toEqual([{ ingredientIndex: 0, pickedSkuId: '1', confidence: 'high', reason: 'whole milk match' }]);
+    expect(result).toEqual([
+      { ingredientIndex: 0, pickedSkuId: '1', cartQty: 1, confidence: 'high', reason: 'whole milk match' },
+    ]);
     const args = mockGenerate.mock.calls[0][0] as { prompt: string };
     expect(args.prompt).toContain('"name": "leche"');
     expect(args.prompt).toContain('"skuId": "1"');
     expect(args.prompt.toLowerCase()).not.toContain('user preferences');
+    // Anchors the cartQty rule in the prompt: matcher must compute packages,
+    // not echo recipe quantity.
+    expect(args.prompt.toLowerCase()).toContain('cartqty');
+    expect(args.prompt.toLowerCase()).toContain('package');
   });
 
   it('includes preferences block in the prompt when prefs is non-empty', async () => {
     mockGenerate.mockResolvedValueOnce({
-      object: [{ ingredientIndex: 0, pickedSkuId: '2', confidence: 'high', reason: 'lactose-free pref' }],
+      object: [{ ingredientIndex: 0, pickedSkuId: '2', cartQty: 1, confidence: 'high', reason: 'lactose-free pref' }],
     } as never);
 
     await pickSkus({

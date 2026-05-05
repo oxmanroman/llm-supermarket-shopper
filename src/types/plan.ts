@@ -46,6 +46,11 @@ export type MatchedItem = {
   ingredient: AggregatedIngredient;
   picked: Product;
   confidence: 'high' | 'medium' | 'low';
+  // Number of packages of `picked` to add to the cart so the user has enough
+  // of `ingredient` for the recipe. Distinct from `ingredient.qty`, which is
+  // the recipe quantity (e.g. 500 g of flour). User can edit this on the
+  // resolution screen.
+  cartQty: number;
 };
 
 export type Resolution =

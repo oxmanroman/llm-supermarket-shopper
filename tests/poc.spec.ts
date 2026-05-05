@@ -34,6 +34,7 @@ const sampleResolve = {
       },
       picked: { skuId: 'sku-onion', productId: 'p', name: 'Cebolla por kg', price: 1500, available: true },
       confidence: 'high',
+      cartQty: 1,
     },
   ],
   unmatched: [
@@ -50,7 +51,7 @@ const sampleResolve = {
     'a-onion': [{ skuId: 'sku-onion', productId: 'p', name: 'Cebolla por kg', price: 1500, available: true }],
     'a-flour': [],
   },
-  redirectUrl: 'https://www.jumbo.com.ar/checkout/cart/add?sku=sku-onion&qty=2&seller=1&sc=32&redirect=true',
+  redirectUrl: 'https://www.jumbo.com.ar/checkout/cart/add?sku=sku-onion&qty=1&seller=1&sc=32&redirect=true',
 };
 
 const mockApi = async (route: Route) => {

@@ -50,6 +50,7 @@ export async function resolve(input: ResolveInput): Promise<ResolveOutput> {
         ingredient,
         picked: product,
         confidence: pick.confidence,
+        cartQty: Math.max(1, Math.round(pick.cartQty ?? 1)),
       });
     } else {
       unmatched.push(ingredient);
@@ -66,7 +67,7 @@ export function recomputeRedirectUrl(matched: MatchedItem[], store: Store): stri
     store,
     matched.map((m) => ({
       skuId: m.picked.skuId,
-      qty: Math.max(1, Math.round(m.ingredient.qty ?? 1)),
+      qty: Math.max(1, Math.round(m.cartQty)),
     })),
   );
 }

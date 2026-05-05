@@ -26,6 +26,13 @@ export type ExtractResult = z.infer<typeof ExtractResultSchema>;
 export const PickSchema = z.object({
   ingredientIndex: z.number(),
   pickedSkuId: z.string().nullable(),
+  // How many PACKAGES of pickedSkuId to add to the cart so the user has enough
+  // for the recipe — NOT the recipe quantity. Computed by the matcher LLM from
+  // (recipe need) ÷ (package size parsed from the SKU name), rounded up.
+  // Example: recipe needs "500 g harina", SKU is "Harina 0000 1 Kg Caserita",
+  // cartQty=1. Recipe needs "12 tapas", SKU is "Tapas x 12 Un", cartQty=1.
+  // null when pickedSkuId is null.
+  cartQty: z.number().nullable(),
   confidence: z.enum(['high', 'medium', 'low']),
   reason: z.string(),
 });
