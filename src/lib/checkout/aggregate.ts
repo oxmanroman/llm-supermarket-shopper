@@ -17,17 +17,27 @@ const AggregateOutputSchema = z.object({
   skipped: z.array(SkippedSchema),
 });
 
-const SYSTEM_PROMPT = `You are aggregating a weekly shopping list from multiple recipes.
+const SYSTEM_PROMPT = `You are aggregating a weekly shopping list from multiple recipes. The output will be searched and bought at an Argentine supermarket.
 
-INPUT: a list of recipes, each with an id, label, and ingredient lines (text + parsed qty/unit).
+INPUT: a list of recipes, each with an id, label, and ingredient lines (text + parsed qty/unit). Quantities may be in mixed units — metric (g, kg, ml, L), imperial volume (cup/taza, tbsp/cucharada, tsp/cucharadita, oz, lb, fl oz), or counts (e.g., "3 bananas" with no unit).
 
 TASK:
-1. Combine duplicate ingredients across recipes. Sum quantities when units match. When units differ, pick a sensible total quantity in a single common unit; record both originals in the sources[] entries.
-2. Drop common pantry staples (sal, pimienta, agua, aceite común, azúcar) into a "skipped" list with reason "pantry staple" — UNLESS the user's preferences say otherwise.
-3. Return aggregated names and reasons in Argentine Spanish (es-AR).
-4. Each aggregated ingredient must include its sources: the recipeId, recipeLabel, and the original text from each contributing recipe.
+1. Convert every quantity to a unit Argentine supermarkets actually sell the ingredient by. The output unit field must be ONE OF: "g", "kg", "ml", "L", "unidad", or null. Choose by ingredient kind:
+   - flour, sugar, rice, pasta, oats, cocoa, dry beans, breadcrumbs, butter, cheese, meat, fish, spices → "g" or "kg" (weight)
+   - milk, water, broth, oil, vinegar, juice, sauces, liquids → "ml" or "L"
+   - whole produce (onion, banana, apple, potato, lemon, garlic, etc.), eggs → "unidad"
+2. Use these culinary conversions when the input is in cups/tbsp/tsp/oz/lb:
+   - 1 cup flour ≈ 130 g · 1 cup sugar ≈ 200 g · 1 cup butter ≈ 230 g · 1 cup rice ≈ 200 g · 1 cup oats ≈ 90 g
+   - 1 cup milk/water/broth/oil ≈ 240 ml
+   - 1 tbsp ≈ 15 ml (liquids) or 15 g (solids by weight) · 1 tsp ≈ 5 ml or 5 g
+   - 1 oz ≈ 28 g · 1 lb ≈ 454 g · 1 fl oz ≈ 30 ml
+3. Combine duplicate ingredients across recipes after converting. Sum totals in the chosen unit; record per-source originals in sources[].
+4. Drop common pantry staples (sal, pimienta, agua, aceite común, azúcar) into "skipped" with reason "pantry staple" — UNLESS the user's preferences say otherwise.
+5. Return aggregated names in Argentine Spanish (es-AR). Each aggregated ingredient must include its sources: the recipeId, recipeLabel, and the original text from each contributing recipe (preserve the original recipe text verbatim in originalText, even if it was in cups/tbsp).
 
-The "id" on aggregated entries is a stable identifier you generate (any short string).`;
+The "id" on aggregated entries is a stable identifier you generate (any short string).
+
+⚠️ STRICT: the output unit field MUST be one of "g", "kg", "ml", "L", "unidad", or null — never "cup", "taza", "tbsp", "cucharada", "tsp", "cucharadita", "oz", "lb", or "fl oz".`;
 
 type AggregateInput = { recipes: Recipe[]; preferences: string };
 

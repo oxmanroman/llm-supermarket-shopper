@@ -76,6 +76,10 @@ describe('aggregate', () => {
     expect(args.prompt).toContain('Empanadas de pollo');
     expect(args.prompt).toContain('Tarta de espinaca');
     expect(args.prompt.toLowerCase()).toContain('skipped');
+    // Anchors the imperial-volume conversion rule the aggregator owns:
+    // cups/tbsp/tsp/oz/lb must end up as g/kg/ml/L/unidad before resolution.
+    expect(args.prompt.toLowerCase()).toContain('cup');
+    expect(args.prompt.toLowerCase()).toContain('unidad');
   });
 
   it('includes preferences block in the prompt when non-empty', async () => {

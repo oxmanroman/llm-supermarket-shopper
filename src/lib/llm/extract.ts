@@ -11,8 +11,9 @@ TASK: Return the recipe title (label) and a structured ingredient list in **Arge
 
 RULES:
 - Include every ingredient the recipe lists.
-- If the recipe is in another language, translate ingredient names to Argentine Spanish (e.g., "butter" -> "manteca", "avocado" -> "palta", "bell pepper" -> "morrón").
-- Quantities: numeric when given (e.g., "2 cucharadas" -> qty: 2, unit: "cucharada"). Use null when not specified or "to taste".
+- If the recipe is in another language, translate ingredient names to Argentine Spanish (e.g., "butter" -> "manteca", "avocado" -> "palta", "bell pepper" -> "morrón", "all-purpose flour" -> "harina 0000", "heavy cream" -> "crema de leche", "buttermilk" -> "leche cortada").
+- Quantities: numeric when given. Use null when not specified or "to taste".
+- Preserve the units as written in the recipe (cup/taza/tbsp/tsp/g/ml/etc.). The aggregation step will convert imperial volumes to supermarket-friendly units later.
 - Do NOT invent or assume ingredients that aren't listed.
 - Set isLoose to false for a real recipe page.`;
 
