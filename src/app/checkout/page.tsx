@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Container, IconButton, Typography } from '@mui/material';
-import { CheckoutHandedOff, CheckoutLoading, CheckoutResolution, CheckoutStoreSelect, Navbar } from '~/containers';
+import { CheckoutLoading, CheckoutResolution, CheckoutStoreSelect, Navbar } from '~/containers';
 import { usePlan } from '~/hooks';
 import type { StoreId } from '~/lib/vtex/types';
 import type { Resolution } from '~/types/plan';
@@ -113,8 +113,10 @@ export default function CheckoutPage() {
         {resolution && resolution.state === 'error' && (
           <CheckoutLoading error={{ message: resolution.message, onRetry: retry }} />
         )}
-        {resolution && resolution.state === 'ready' && <CheckoutResolution onBack={back} />}
-        {resolution && resolution.state === 'handed-off' && <CheckoutHandedOff />}
+        {/* 'handed-off' is a deprecated state; treat it as 'ready' so users with stale localStorage still see their resolution. */}
+        {resolution && (resolution.state === 'ready' || resolution.state === 'handed-off') && (
+          <CheckoutResolution onBack={back} />
+        )}
       </Container>
     </Box>
   );

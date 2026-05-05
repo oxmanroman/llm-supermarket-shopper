@@ -1,5 +1,4 @@
 export * from './AddRecipeBar';
-export * from './CheckoutHandedOff';
 export * from './CheckoutLoading';
 export * from './CheckoutResolution';
 export * from './CheckoutStoreSelect';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -16,6 +17,11 @@ import {
   CardContent,
   Chip,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   List,
   ListItem,
@@ -37,9 +43,11 @@ type Props = { onBack: () => void };
 type ReadyResolution = Extract<Resolution, { state: 'ready' }>;
 
 export const CheckoutResolution = ({ onBack }: Props) => {
+  const router = useRouter();
   const { plan, update } = usePlan();
   const r = plan.lastResolution as ReadyResolution | undefined;
   const [swapOpenFor, setSwapOpenFor] = useState<string | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
 
   const total = useMemo(() => {
     if (!r) return 0;
@@ -102,18 +110,18 @@ export const CheckoutResolution = ({ onBack }: Props) => {
     }));
   };
 
+  // Keep the resolution screen state intact after sending. The user wants to
+  // compare what landed in the supermarket tab against what we resolved here,
+  // and may swap/edit and re-send. They can clear the plan explicitly via the
+  // "Vaciar plan" button below.
   const sendToStore = () => {
     window.open(r.redirectUrl, '_blank', 'noopener');
-    update((p) => ({
-      ...p,
-      lastResolution: {
-        state: 'handed-off',
-        storeId: r.storeId,
-        matched: r.matched,
-        redirectUrl: r.redirectUrl,
-        handedOffAt: Date.now(),
-      },
-    }));
+  };
+
+  const clearPlan = () => {
+    update((p) => ({ ...p, recipes: [], lastResolution: { state: 'idle' } }));
+    setClearOpen(false);
+    router.push('/');
   };
 
   return (
@@ -307,6 +315,27 @@ export const CheckoutResolution = ({ onBack }: Props) => {
       {r.matched.length === 0 && r.unmatched.length === 0 && (
         <Alert severity='info'>No hay productos para enviar.</Alert>
       )}
+
+      <Box sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}>
+        <Button color='error' size='small' onClick={() => setClearOpen(true)} data-testid='clear-plan'>
+          Vaciar plan
+        </Button>
+      </Box>
+
+      <Dialog open={clearOpen} onClose={() => setClearOpen(false)}>
+        <DialogTitle>¿Vaciar plan?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Se eliminan todas las recetas y la resolución actual. Esta acción no se puede deshacer.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearOpen(false)}>Cancelar</Button>
+          <Button color='error' variant='contained' onClick={clearPlan} data-testid='clear-plan-confirm'>
+            Vaciar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
