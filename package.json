@@ -1,10 +1,11 @@
 {
-  "name": "nextjs-boilerplate",
+  "name": "llm-supermarket-shopper",
+  "description": "LLM-driven recipe planner that fills your supermarket cart for you.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
-  "author": "Wonderland",
+  "author": "Gori",
   "engines": {
     "node": ">=18.17.0"
   },

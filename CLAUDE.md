@@ -1,4 +1,4 @@
-# CLAUDE.md
+# CLAUDE.md — LLM Supermarket Shopper
 
 Working notes for AI agents (Claude Code, Cursor, etc.) operating in this repo. Captures the load-bearing knowledge that has bitten us during development. Read once at session start; the README is for users, this file is for you.
 

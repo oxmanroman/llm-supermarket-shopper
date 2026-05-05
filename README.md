@@ -1,12 +1,12 @@
-# Supermarket — Recipe-First Planner
+# LLM Supermarket Shopper
 
 A personal weekly meal planner that ends in a populated supermarket cart. Paste recipe URLs, pasted recipe text, or loose ingredients into a plain-text shopping list grouped by recipe; at checkout, an LLM unifies duplicate ingredients across recipes, picks SKUs in your supermarket of choice, and opens the supermarket's cart in a new tab with everything pre-filled.
 
 Currently targets Argentine supermarkets that run on VTEX: **Jumbo** and **Carrefour**. Integration is anonymous (no API keys for the supermarket side; you log in to pay on the supermarket's own checkout).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/supermarket&env=OPENROUTER_API_KEY&envDescription=OpenRouter%20API%20key%20for%20LLM%20calls&envLink=https://openrouter.ai/keys)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/llm-supermarket-shopper&env=OPENROUTER_API_KEY&envDescription=OpenRouter%20API%20key%20for%20LLM%20calls&envLink=https://openrouter.ai/keys)
 
-> Replace `YOUR_USERNAME/supermarket` in the deploy button URL with your fork's path.
+> Replace `YOUR_USERNAME/llm-supermarket-shopper` in the deploy button URL with your fork's path.
 
 ## Features
 
