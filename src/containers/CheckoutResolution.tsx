@@ -13,6 +13,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Collapse,
   IconButton,
   List,
@@ -218,26 +219,36 @@ export const CheckoutResolution = ({ onBack }: Props) => {
             No encontramos
           </Typography>
           <Stack spacing={1} sx={{ mb: 3 }}>
-            {r.unmatched.map((u) => (
-              <Card key={u.id} variant='outlined' data-testid={`unmatched-${u.id}`}>
-                <CardContent>
-                  <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 1 }}>
-                    <Typography variant='body2' sx={{ flexGrow: 1, fontWeight: 500 }}>
-                      {u.name}
-                    </Typography>
-                    <Button size='small' onClick={() => dropUnmatched(u.id)}>
-                      Ignorar
-                    </Button>
-                  </Stack>
-                  <ProductSearch
-                    storeId={r.storeId}
-                    initialQuery={u.name}
-                    pickLabel='Usar este'
-                    onPick={(p) => promoteUnmatched(u.id, p, u)}
-                  />
-                </CardContent>
-              </Card>
-            ))}
+            {r.unmatched.map((u) => {
+              const qtyLabel = u.qty != null ? `${u.qty}${u.unit ? ` ${u.unit}` : ''}` : (u.unit ?? '');
+              const sourceLabels = u.sources.map((s) => s.recipeLabel).join(', ');
+              return (
+                <Card key={u.id} variant='outlined' data-testid={`unmatched-${u.id}`}>
+                  <CardContent>
+                    <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 0.5 }}>
+                      <Typography variant='body2' sx={{ flexGrow: 1, fontWeight: 500 }}>
+                        {u.name}
+                      </Typography>
+                      {qtyLabel && <Chip size='small' label={qtyLabel} />}
+                      <Button size='small' onClick={() => dropUnmatched(u.id)}>
+                        Ignorar
+                      </Button>
+                    </Stack>
+                    {sourceLabels && (
+                      <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1 }}>
+                        de {sourceLabels}
+                      </Typography>
+                    )}
+                    <ProductSearch
+                      storeId={r.storeId}
+                      initialQuery={u.name}
+                      pickLabel='Usar este'
+                      onPick={(p) => promoteUnmatched(u.id, p, u)}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })}
           </Stack>
         </>
       )}
