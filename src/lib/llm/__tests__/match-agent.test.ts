@@ -2,8 +2,9 @@
  * @jest-environment node
  */
 jest.mock('ai', () => ({
+  generateText: jest.fn(),
   tool: jest.fn((def) => def),
-  isStepCount: jest.fn((n: number) => ({ kind: 'isStepCount', n })),
+  stepCountIs: jest.fn((n: number) => ({ kind: 'stepCountIs', n })),
 }));
 jest.mock('../client', () => ({ createLlm: jest.fn(() => 'mocked-model') }));
 jest.mock('~/lib/store', () => {
@@ -11,10 +12,12 @@ jest.mock('~/lib/store', () => {
   return { ...actual, productSearch: jest.fn(async () => []) };
 });
 
+import { generateText } from 'ai';
 import type { Product, Store } from '~/lib/store';
 import { STORES, productSearch as storeProductSearch } from '~/lib/store';
-import { buildMatchAgentTools } from '../match-agent';
+import { buildMatchAgentTools, matchAgent } from '../match-agent';
 
+const mockGenerateText = generateText as jest.MockedFunction<typeof generateText>;
 const mockStoreSearch = storeProductSearch as jest.MockedFunction<typeof storeProductSearch>;
 
 const milkProduct: Product = {
@@ -48,6 +51,7 @@ const ingFlour = {
 };
 
 beforeEach(() => {
+  mockGenerateText.mockReset();
   mockStoreSearch.mockReset();
   mockStoreSearch.mockResolvedValue([]);
 });
@@ -152,3 +156,104 @@ function makeCtx({ store, aggregated, productSearch }: MakeCtxArgs) {
     skipped: new Map<number, string>(),
   };
 }
+
+describe('matchAgent', () => {
+  it('calls generateText with system prompt + tools + stopWhen, returns picks/skipped/candidatesById from closure', async () => {
+    mockGenerateText.mockImplementationOnce(async (args: { tools: ReturnType<typeof buildMatchAgentTools> }) => {
+      // Simulate the agent calling tools during the loop. The real generateText
+      // does this internally; here we drive it by hand to verify wiring.
+      await args.tools.searchProducts.execute({ query: 'leche', ingredientIndex: 0 }, undefined as never);
+      await args.tools.submitPick.execute(
+        { ingredientIndex: 0, pickedSkuId: 'm1', cartQty: 1, confidence: 'high', reason: 'whole milk' },
+        undefined as never,
+      );
+      await args.tools.skipIngredient.execute(
+        { ingredientIndex: 1, reason: 'no useful candidates' },
+        undefined as never,
+      );
+      return { text: 'done', steps: [] } as never;
+    });
+
+    mockStoreSearch.mockResolvedValueOnce([milkProduct]);
+
+    const out = await matchAgent({
+      store: STORES.jumbo,
+      aggregated: [ingMilk, ingFlour],
+      recipeSummaries: [{ recipeId: 'r1', dish: 'tarta', cuisine: 'argentina', notes: '' }],
+      preferences: '',
+    });
+
+    expect(out.picks).toEqual([
+      { ingredientIndex: 0, pickedSkuId: 'm1', cartQty: 1, confidence: 'high', reason: 'whole milk' },
+    ]);
+    expect(out.skipped).toEqual([{ ingredientIndex: 1, reason: 'no useful candidates' }]);
+    expect(out.candidatesById['a-milk']).toEqual([milkProduct]);
+
+    const callArgs = mockGenerateText.mock.calls[0][0] as {
+      model: string;
+      system: string;
+      prompt: string;
+      tools: object;
+      stopWhen: unknown;
+    };
+    expect(callArgs.model).toBe('mocked-model');
+    expect(callArgs.system.toLowerCase()).toContain('match');
+    // The aggregated list, ingredient indices, and recipe summaries must reach the prompt.
+    expect(callArgs.prompt).toContain('a-milk');
+    expect(callArgs.prompt).toContain('a-flour');
+    expect(callArgs.prompt.toLowerCase()).toContain('tarta');
+    expect(Object.keys(callArgs.tools)).toEqual(
+      expect.arrayContaining(['searchProducts', 'submitPick', 'skipIngredient']),
+    );
+    // stopWhen array contains an isStepCount entry sized to the ingredient count.
+    expect(Array.isArray(callArgs.stopWhen)).toBe(true);
+  });
+
+  it('includes USER PREFERENCES block when preferences non-empty', async () => {
+    mockGenerateText.mockResolvedValueOnce({ text: '', steps: [] } as never);
+
+    await matchAgent({
+      store: STORES.jumbo,
+      aggregated: [ingMilk],
+      recipeSummaries: [],
+      preferences: 'lactose-free dairy please',
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).toContain('USER PREFERENCES');
+    expect(callArgs.prompt).toContain('lactose-free dairy please');
+  });
+
+  it('omits USER PREFERENCES block when preferences is empty', async () => {
+    mockGenerateText.mockResolvedValueOnce({ text: '', steps: [] } as never);
+
+    await matchAgent({
+      store: STORES.jumbo,
+      aggregated: [ingMilk],
+      recipeSummaries: [],
+      preferences: '',
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).not.toContain('USER PREFERENCES');
+  });
+
+  it('returns whatever was submitted when generateText throws after partial progress', async () => {
+    mockGenerateText.mockImplementationOnce(async (args: { tools: ReturnType<typeof buildMatchAgentTools> }) => {
+      await args.tools.submitPick.execute(
+        { ingredientIndex: 0, pickedSkuId: 'm1', cartQty: 1, confidence: 'high', reason: 'partial' },
+        undefined as never,
+      );
+      throw new Error('step cap blew up');
+    });
+
+    await expect(
+      matchAgent({
+        store: STORES.jumbo,
+        aggregated: [ingMilk, ingFlour],
+        recipeSummaries: [],
+        preferences: '',
+      }),
+    ).rejects.toThrow(/LLM_FAILED.*step cap blew up/);
+  });
+});
