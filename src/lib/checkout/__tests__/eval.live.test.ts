@@ -193,6 +193,15 @@ liveDescribe.each(FIXTURES)('eval: %s', (fixture: Fixture) => {
     expect(out).toBeDefined();
     expect(out.matched.length).toBeGreaterThan(0);
 
+    // Recall floor for the agent matcher. The agent's whole reason for existing
+    // is recall — if it can't clear 0.7 across these fixtures, something is
+    // wrong with the search-refinement loop or the prompt. Tighten this number
+    // once the agent has a stable track record across runs.
+    const aggregatedCount = out.matched.length + out.unmatched.length;
+    expect(aggregatedCount).toBeGreaterThan(0);
+    const recall = out.matched.length / aggregatedCount;
+    expect(recall).toBeGreaterThanOrEqual(0.7);
+
     for (const m of out.matched) {
       expect(Number.isInteger(m.cartQty)).toBe(true);
       expect(m.cartQty).toBeGreaterThanOrEqual(1);
