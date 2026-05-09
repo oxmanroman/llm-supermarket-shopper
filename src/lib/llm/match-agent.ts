@@ -135,9 +135,9 @@ Worked examples:
   { name: "aceitunas", qty: 50, unit: "g" } "Aceitunas Castell Verdes 100 Gr"    1         50 g ÷ 100 g = 0.5, round up
   { name: "cebolla", qty: 2, unit: "unidad" } "Cebolla Por Kg"                   1         By-weight produce: 1 kg covers 2 onions
 
-If pickedSkuId is null in a submitPick call, set cartQty to null too. Prefer skipIngredient over submitting a null pick.
+Never call submitPick with pickedSkuId=null. If no candidate is acceptable after a few refined searches, call skipIngredient with a short reason and move on.
 
-DO NOT loop forever. If a few refined searches turn up nothing reasonable, skipIngredient and move on.`;
+DO NOT loop forever. After 3–4 refined searches yield nothing reasonable for an ingredient, skipIngredient.`;
 
 function buildPrompt(input: MatchAgentInput): string {
   const summariesByRecipe = new Map(input.recipeSummaries.map((s) => [s.recipeId, s]));

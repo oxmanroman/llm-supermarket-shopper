@@ -206,7 +206,13 @@ describe('matchAgent', () => {
       expect.arrayContaining(['searchProducts', 'submitPick', 'skipIngredient']),
     );
     // stopWhen array contains an isStepCount entry sized to the ingredient count.
-    expect(Array.isArray(callArgs.stopWhen)).toBe(true);
+    expect(callArgs.stopWhen).toEqual([
+      expect.objectContaining({ kind: 'stepCountIs', n: 5 + 4 * 2 }),
+      expect.any(Function),
+    ]);
+    const predicate = (callArgs.stopWhen as unknown[])[1] as () => boolean;
+    // At assertion time, the simulated tool calls have set picks(0) and skipped(1) — both ingredients accounted for.
+    expect(predicate()).toBe(true);
   });
 
   it('includes USER PREFERENCES block when preferences non-empty', async () => {
