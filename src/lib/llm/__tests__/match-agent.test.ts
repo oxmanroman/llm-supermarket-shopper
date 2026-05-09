@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 jest.mock('ai', () => ({
-  generateText: jest.fn(),
   tool: jest.fn((def) => def),
   isStepCount: jest.fn((n: number) => ({ kind: 'isStepCount', n })),
 }));
@@ -12,13 +11,11 @@ jest.mock('~/lib/store', () => {
   return { ...actual, productSearch: jest.fn(async () => []) };
 });
 
-import { generateText } from 'ai';
 import type { Product, Store } from '~/lib/store';
 import { STORES, productSearch as storeProductSearch } from '~/lib/store';
 import { buildMatchAgentTools } from '../match-agent';
 
 const mockStoreSearch = storeProductSearch as jest.MockedFunction<typeof storeProductSearch>;
-const mockGenerateText = generateText as jest.MockedFunction<typeof generateText>;
 
 const milkProduct: Product = {
   skuId: 'm1',
@@ -51,7 +48,6 @@ const ingFlour = {
 };
 
 beforeEach(() => {
-  mockGenerateText.mockReset();
   mockStoreSearch.mockReset();
   mockStoreSearch.mockResolvedValue([]);
 });

@@ -1,10 +1,7 @@
-import { generateText, isStepCount, tool } from 'ai';
+import { tool } from 'ai';
 import { z } from 'zod';
-import { productSearch as defaultProductSearch } from '~/lib/store';
 import type { Product, Store } from '~/lib/store';
 import type { AggregatedIngredient, RecipeSummary } from '~/types/plan';
-import { createLlm } from './client';
-import { describeLlmError } from './errors';
 import { PickSchema, type Pick } from './types';
 
 const SEARCH_RESULTS_TOP_N = 15;
@@ -107,14 +104,7 @@ export function buildMatchAgentTools(ctx: MatchAgentContext) {
   };
 }
 
-// Implemented in Task 3. Imports above (generateText, isStepCount, createLlm,
-// describeLlmError, defaultProductSearch) will be wired in there.
-export async function matchAgent(input: MatchAgentInput): Promise<MatchAgentOutput> {
-  void input;
-  void generateText;
-  void isStepCount;
-  void createLlm;
-  void describeLlmError;
-  void defaultProductSearch;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub for Task 3; signature locked in for callers
+export async function matchAgent(_input: MatchAgentInput): Promise<MatchAgentOutput> {
   throw new Error('matchAgent not implemented yet');
 }
