@@ -2,25 +2,19 @@
  * @jest-environment node
  */
 jest.mock('../aggregate', () => ({ aggregate: jest.fn() }));
-jest.mock('~/lib/llm/match', () => ({ pickSkus: jest.fn() }));
-jest.mock('~/lib/store/dispatch', () => {
-  const actual = jest.requireActual('~/lib/store/dispatch');
-  return { ...actual, productSearch: jest.fn() };
-});
+jest.mock('~/lib/llm/match-agent', () => ({ matchAgent: jest.fn() }));
 
-import { pickSkus } from '~/lib/llm/match';
-import { STORES, productSearch } from '~/lib/store';
+import { matchAgent } from '~/lib/llm/match-agent';
+import { STORES } from '~/lib/store';
 import { aggregate } from '../aggregate';
 import { recomputeRedirectUrl, resolve } from '../resolve';
 
 const mockAggregate = aggregate as jest.MockedFunction<typeof aggregate>;
-const mockPick = pickSkus as jest.MockedFunction<typeof pickSkus>;
-const mockSearch = productSearch as jest.MockedFunction<typeof productSearch>;
+const mockMatch = matchAgent as jest.MockedFunction<typeof matchAgent>;
 
 beforeEach(() => {
   mockAggregate.mockReset();
-  mockPick.mockReset();
-  mockSearch.mockReset();
+  mockMatch.mockReset();
 });
 
 const ingMilk = {
@@ -41,19 +35,19 @@ const milkCandidates = [
   { skuId: 'm1', productId: 'p1', name: 'Leche entera 1L', price: 800, available: true },
   { skuId: 'm2', productId: 'p2', name: 'Leche descremada 1L', price: 850, available: true },
 ];
-const flourCandidates: never[] = [];
 
 describe('resolve', () => {
-  it('runs aggregate → search → match and returns matched/unmatched/skipped', async () => {
+  it('runs aggregate → matchAgent and returns matched/unmatched/skipped', async () => {
     mockAggregate.mockResolvedValueOnce({
       aggregated: [ingMilk, ingFlour],
       skipped: [{ name: 'sal', reason: 'pantry staple' }],
+      recipeSummaries: [],
     });
-    mockSearch.mockResolvedValueOnce(milkCandidates).mockResolvedValueOnce(flourCandidates);
-    mockPick.mockResolvedValueOnce([
-      { ingredientIndex: 0, pickedSkuId: 'm1', cartQty: 1, confidence: 'high', reason: 'best name match' },
-      { ingredientIndex: 1, pickedSkuId: null, cartQty: null, confidence: 'low', reason: 'no candidates' },
-    ]);
+    mockMatch.mockResolvedValueOnce({
+      picks: [{ ingredientIndex: 0, pickedSkuId: 'm1', cartQty: 1, confidence: 'high', reason: 'best name match' }],
+      skipped: [{ ingredientIndex: 1, reason: 'no candidates' }],
+      candidatesById: { 'a-milk': milkCandidates, 'a-flour': [] },
+    });
 
     const out = await resolve({
       store: STORES.jumbo,
@@ -81,7 +75,6 @@ describe('resolve', () => {
     expect(out.skipped).toHaveLength(1);
     expect(out.candidates['a-milk']).toEqual(milkCandidates);
     expect(out.candidates['a-flour']).toEqual([]);
-    // Cart URL qty MUST be the matcher's cartQty (= 1 package), not the recipe qty (= 1 L of milk).
     expect(out.redirectUrl).toMatch(/jumbo\.com\.ar\/checkout\/cart\/add\?sku=m1&qty=1&seller=1/);
   });
 
@@ -96,37 +89,51 @@ describe('resolve', () => {
     const flourCandidate1Kg = [
       { skuId: 'f1', productId: 'pf', name: 'Harina 0000 1 Kg Caserita', price: 1500, available: true },
     ];
-    mockAggregate.mockResolvedValueOnce({ aggregated: [ingFlourBig], skipped: [] });
-    mockSearch.mockResolvedValueOnce(flourCandidate1Kg);
-    mockPick.mockResolvedValueOnce([
-      { ingredientIndex: 0, pickedSkuId: 'f1', cartQty: 1, confidence: 'high', reason: '500g need ÷ 1000g pkg = 1' },
-    ]);
+    mockAggregate.mockResolvedValueOnce({ aggregated: [ingFlourBig], skipped: [], recipeSummaries: [] });
+    mockMatch.mockResolvedValueOnce({
+      picks: [
+        { ingredientIndex: 0, pickedSkuId: 'f1', cartQty: 1, confidence: 'high', reason: '500g need ÷ 1000g pkg = 1' },
+      ],
+      skipped: [],
+      candidatesById: { 'a-flour': flourCandidate1Kg },
+    });
 
     const out = await resolve({ store: STORES.jumbo, recipes: [], preferences: '' });
 
     expect(out.matched[0].cartQty).toBe(1);
-    expect(out.matched[0].ingredient.qty).toBe(500); // recipe need preserved
-    // The cart URL must NOT contain qty=500.
+    expect(out.matched[0].ingredient.qty).toBe(500);
     expect(out.redirectUrl).not.toMatch(/qty=500/);
     expect(out.redirectUrl).toMatch(/sku=f1&qty=1/);
   });
 
-  it('passes preferences to aggregate and pickSkus', async () => {
-    mockAggregate.mockResolvedValueOnce({ aggregated: [], skipped: [] });
-    await resolve({
-      store: STORES.jumbo,
-      recipes: [],
-      preferences: 'lactose-free',
+  it('passes preferences and recipeSummaries to matchAgent', async () => {
+    mockAggregate.mockResolvedValueOnce({
+      aggregated: [ingMilk],
+      skipped: [],
+      recipeSummaries: [{ recipeId: 'r1', dish: 'tarta', cuisine: 'argentina', notes: '' }],
     });
+    mockMatch.mockResolvedValueOnce({ picks: [], skipped: [], candidatesById: {} });
+
+    await resolve({ store: STORES.jumbo, recipes: [], preferences: 'lactose-free' });
+
     expect(mockAggregate).toHaveBeenCalledWith(expect.objectContaining({ preferences: 'lactose-free' }));
+    expect(mockMatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferences: 'lactose-free',
+        recipeSummaries: [{ recipeId: 'r1', dish: 'tarta', cuisine: 'argentina', notes: '' }],
+        aggregated: [ingMilk],
+        store: STORES.jumbo,
+      }),
+    );
   });
 
-  it('skips picks whose pickedSkuId is not in candidates (treated as unmatched)', async () => {
-    mockAggregate.mockResolvedValueOnce({ aggregated: [ingMilk], skipped: [] });
-    mockSearch.mockResolvedValueOnce(milkCandidates);
-    mockPick.mockResolvedValueOnce([
-      { ingredientIndex: 0, pickedSkuId: 'made-up', cartQty: 1, confidence: 'low', reason: 'hallucinated' },
-    ]);
+  it('skips picks whose pickedSkuId is not in candidatesById (treated as unmatched)', async () => {
+    mockAggregate.mockResolvedValueOnce({ aggregated: [ingMilk], skipped: [], recipeSummaries: [] });
+    mockMatch.mockResolvedValueOnce({
+      picks: [{ ingredientIndex: 0, pickedSkuId: 'made-up', cartQty: 1, confidence: 'low', reason: 'hallucinated' }],
+      skipped: [],
+      candidatesById: { 'a-milk': milkCandidates },
+    });
 
     const out = await resolve({ store: STORES.jumbo, recipes: [], preferences: '' });
     expect(out.matched).toHaveLength(0);
@@ -170,7 +177,7 @@ describe('resolve', () => {
   });
 
   it('resolve dispatches to the COTO adapter when storeId is coto', async () => {
-    mockAggregate.mockResolvedValueOnce({ aggregated: [ingMilk], skipped: [] });
+    mockAggregate.mockResolvedValueOnce({ aggregated: [ingMilk], skipped: [], recipeSummaries: [] });
     const cotoMilkCandidate = {
       skuId: '00008899',
       productId: 'prod00008899',
@@ -179,10 +186,13 @@ describe('resolve', () => {
       available: true,
       productUrl: 'https://www.cotodigital.com.ar/sitios/cdigi/productos/_/R-00008899-00008899-200',
     };
-    mockSearch.mockResolvedValueOnce([cotoMilkCandidate]);
-    mockPick.mockResolvedValueOnce([
-      { ingredientIndex: 0, pickedSkuId: '00008899', cartQty: 1, confidence: 'high', reason: 'COTO own brand' },
-    ]);
+    mockMatch.mockResolvedValueOnce({
+      picks: [
+        { ingredientIndex: 0, pickedSkuId: '00008899', cartQty: 1, confidence: 'high', reason: 'COTO own brand' },
+      ],
+      skipped: [],
+      candidatesById: { 'a-milk': [cotoMilkCandidate] },
+    });
 
     const out = await resolve({ store: STORES.coto, recipes: [], preferences: '' });
 

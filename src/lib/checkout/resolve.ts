@@ -1,5 +1,5 @@
-import { pickSkus } from '~/lib/llm/match';
-import { buildAddToCartUrl, productSearch } from '~/lib/store';
+import { matchAgent } from '~/lib/llm/match-agent';
+import { buildAddToCartUrl } from '~/lib/store';
 import type { Product, Store } from '~/lib/store';
 import type { AggregatedIngredient, MatchedItem, Recipe, SkippedIngredient } from '~/types/plan';
 import { aggregate } from './aggregate';
@@ -10,31 +10,32 @@ export type ResolveOutput = {
   matched: MatchedItem[];
   unmatched: AggregatedIngredient[];
   skipped: SkippedIngredient[];
-  candidates: Record<string, Product[]>; // key: aggregated.id
+  candidates: Record<string, Product[]>;
   redirectUrl: string;
 };
 
 export async function resolve(input: ResolveInput): Promise<ResolveOutput> {
-  const { aggregated, skipped } = await aggregate({
+  const { aggregated, skipped, recipeSummaries } = await aggregate({
     recipes: input.recipes,
     preferences: input.preferences,
   });
 
-  const candidatesArr: Product[][] = await Promise.all(
-    aggregated.map((agg) => productSearch(input.store, agg.name).catch(() => [])),
-  );
-  const candidates: Record<string, Product[]> = Object.fromEntries(
-    aggregated.map((agg, i) => [agg.id, candidatesArr[i]]),
-  );
+  if (aggregated.length === 0) {
+    return {
+      matched: [],
+      unmatched: [],
+      skipped,
+      candidates: {},
+      redirectUrl: input.store.baseUrl,
+    };
+  }
 
-  const picks =
-    aggregated.length === 0
-      ? []
-      : await pickSkus({
-          ingredients: aggregated.map((a) => ({ name: a.name, qty: a.qty, unit: a.unit })),
-          candidates: candidatesArr,
-          preferences: input.preferences,
-        });
+  const { picks, candidatesById } = await matchAgent({
+    store: input.store,
+    aggregated,
+    recipeSummaries,
+    preferences: input.preferences,
+  });
 
   const matched: MatchedItem[] = [];
   const unmatched: AggregatedIngredient[] = [];
@@ -42,7 +43,8 @@ export async function resolve(input: ResolveInput): Promise<ResolveOutput> {
   for (let idx = 0; idx < aggregated.length; idx++) {
     const ingredient = aggregated[idx];
     const pick = picks.find((p) => p.ingredientIndex === idx);
-    const product = pick?.pickedSkuId ? candidatesArr[idx]?.find((c) => c.skuId === pick.pickedSkuId) : undefined;
+    const candidates = candidatesById[ingredient.id] ?? [];
+    const product = pick?.pickedSkuId ? candidates.find((c) => c.skuId === pick.pickedSkuId) : undefined;
     if (product && pick) {
       matched.push({
         aggregatedId: ingredient.id,
@@ -54,6 +56,14 @@ export async function resolve(input: ResolveInput): Promise<ResolveOutput> {
     } else {
       unmatched.push(ingredient);
     }
+  }
+
+  // Ensure every aggregated ingredient has an entry in candidates so the
+  // resolution UI's manual-replacement picker can render an empty list
+  // gracefully for unmatched items.
+  const candidates: Record<string, Product[]> = {};
+  for (const agg of aggregated) {
+    candidates[agg.id] = candidatesById[agg.id] ?? [];
   }
 
   const redirectUrl = recomputeRedirectUrl(matched, input.store);
