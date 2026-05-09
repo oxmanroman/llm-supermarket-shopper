@@ -41,6 +41,13 @@ export type AggregatedIngredient = {
 
 export type SkippedIngredient = { name: string; reason: string };
 
+export type RecipeSummary = {
+  recipeId: string;
+  dish: string;
+  cuisine: string;
+  notes: string;
+};
+
 export type MatchedItem = {
   aggregatedId: string;
   ingredient: AggregatedIngredient;

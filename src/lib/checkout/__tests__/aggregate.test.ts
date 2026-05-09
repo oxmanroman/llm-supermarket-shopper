@@ -64,6 +64,10 @@ describe('aggregate', () => {
           },
         ],
         skipped: [{ name: 'sal', reason: 'pantry staple' }],
+        recipeSummaries: [
+          { recipeId: 'r1', dish: 'empanadas de pollo', cuisine: 'argentina', notes: 'tapas para empanadas obligatorias' },
+          { recipeId: 'r2', dish: 'tarta de espinaca', cuisine: 'argentina', notes: '' },
+        ],
       },
     } as never);
 
@@ -72,18 +76,28 @@ describe('aggregate', () => {
     expect(result.aggregated).toHaveLength(3);
     expect(result.skipped).toHaveLength(1);
     expect(result.aggregated[0].sources).toHaveLength(2);
+    expect(result.recipeSummaries).toHaveLength(2);
+    expect(result.recipeSummaries[0]).toEqual({
+      recipeId: 'r1',
+      dish: 'empanadas de pollo',
+      cuisine: 'argentina',
+      notes: 'tapas para empanadas obligatorias',
+    });
     const args = mockGenerate.mock.calls[0][0] as { prompt: string };
     expect(args.prompt).toContain('Empanadas de pollo');
     expect(args.prompt).toContain('Tarta de espinaca');
     expect(args.prompt.toLowerCase()).toContain('skipped');
-    // Anchors the imperial-volume conversion rule the aggregator owns:
-    // cups/tbsp/tsp/oz/lb must end up as g/kg/ml/L/unidad before resolution.
     expect(args.prompt.toLowerCase()).toContain('cup');
     expect(args.prompt.toLowerCase()).toContain('unidad');
+    // The prompt must instruct the LLM to also produce per-recipe summaries
+    // for the matcher agent downstream.
+    expect(args.prompt.toLowerCase()).toContain('recipesummaries');
+    expect(args.prompt.toLowerCase()).toContain('dish');
+    expect(args.prompt.toLowerCase()).toContain('cuisine');
   });
 
   it('includes preferences block in the prompt when non-empty', async () => {
-    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [] } } as never);
+    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [], recipeSummaries: [] } } as never);
     await aggregate({ recipes: [empanadas], preferences: 'siempre comprar sal' });
     const args = mockGenerate.mock.calls[0][0] as { prompt: string };
     expect(args.prompt).toContain('USER PREFERENCES');
@@ -91,7 +105,7 @@ describe('aggregate', () => {
   });
 
   it('omits preferences block when empty', async () => {
-    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [] } } as never);
+    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [], recipeSummaries: [] } } as never);
     await aggregate({ recipes: [empanadas], preferences: '' });
     const args = mockGenerate.mock.calls[0][0] as { prompt: string };
     expect(args.prompt.toLowerCase()).not.toContain('user preferences');
@@ -103,7 +117,7 @@ describe('aggregate', () => {
   });
 
   it('skips recipes with source.status !== "ready"', async () => {
-    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [] } } as never);
+    mockGenerate.mockResolvedValueOnce({ object: { aggregated: [], skipped: [], recipeSummaries: [] } } as never);
     const errored = {
       ...empanadas,
       id: 'r3',
