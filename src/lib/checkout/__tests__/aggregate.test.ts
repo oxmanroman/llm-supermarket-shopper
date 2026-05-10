@@ -65,7 +65,12 @@ describe('aggregate', () => {
         ],
         skipped: [{ name: 'sal', reason: 'pantry staple' }],
         recipeSummaries: [
-          { recipeId: 'r1', dish: 'empanadas de pollo', cuisine: 'argentina', notes: 'tapas para empanadas obligatorias' },
+          {
+            recipeId: 'r1',
+            dish: 'empanadas de pollo',
+            cuisine: 'argentina',
+            notes: 'tapas para empanadas obligatorias',
+          },
           { recipeId: 'r2', dish: 'tarta de espinaca', cuisine: 'argentina', notes: '' },
         ],
       },
